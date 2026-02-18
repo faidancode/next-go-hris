@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert } from "@/components/shared/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +19,14 @@ import {
 } from "@/components/ui/sheet";
 import { useLeaveSheet } from "@/hooks/use-leave-sheet";
 import { useCreateLeave } from "@/hooks/use-leave";
-import type { LeaveType } from "./types";
-import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  leaveSchema,
+  type LeaveFormValues,
+} from "@/lib/validations/leave-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 function toDateInputValue(date: Date) {
@@ -36,34 +43,56 @@ type LeaveSheetProps = {
 export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
   const { open, mode, defaultValues, close } = useLeaveSheet();
   const today = useMemo(() => toDateInputValue(new Date()), []);
-  const initialLeaveType = defaultValues.leaveType ?? "ANNUAL";
-  const initialStartDate = defaultValues.startDate || today;
-  const initialEndDate = defaultValues.endDate || initialStartDate;
-  const initialReason = defaultValues.reason ?? "";
   const createMutation = useCreateLeave();
-  const submitting = createMutation.isPending;
-  const [form, setForm] = useState({
-    leaveType: initialLeaveType as LeaveType,
-    startDate: initialStartDate,
-    endDate: initialEndDate,
-    reason: initialReason,
+  const isSubmitting = createMutation.isPending;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const form = useForm<LeaveFormValues>({
+    resolver: zodResolver(leaveSchema),
+    defaultValues: {
+      leaveType: "ANNUAL",
+      startDate: today,
+      endDate: today,
+      reason: "",
+    },
   });
 
-  const resetFormToToday = () => {
-    setForm({
+  const {
+    formState: { errors },
+    reset,
+    control,
+  } = form;
+
+  const startDate = useWatch({
+    control,
+    name: "startDate",
+  }) || today;
+
+  useEffect(() => {
+    if (!open) return;
+
+    reset({
+      leaveType: defaultValues.leaveType ?? "ANNUAL",
+      startDate: defaultValues.startDate || today,
+      endDate: defaultValues.endDate || defaultValues.startDate || today,
+      reason: defaultValues.reason ?? "",
+    });
+  }, [defaultValues, open, reset, today]);
+
+  const handleClose = () => {
+    setSubmitError(null);
+    reset({
       leaveType: "ANNUAL",
       startDate: today,
       endDate: today,
       reason: "",
     });
-  };
-
-  const handleClose = () => {
-    resetFormToToday();
     close();
   };
 
-  const handleSubmit = async () => {
+  const onSubmit = async (values: LeaveFormValues) => {
+    setSubmitError(null);
+
     if (mode === "edit") {
       toast.error("Edit leave form is not enabled in current flow.");
       return;
@@ -74,28 +103,20 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
       return;
     }
 
-    if (!form.startDate || !form.endDate) {
-      toast.error("Start date and end date are required.");
-      return;
-    }
-
-    if (form.endDate < form.startDate) {
-      toast.error("End date cannot be earlier than start date.");
-      return;
-    }
-
     try {
       await createMutation.mutateAsync({
         employee_id: employeeId,
-        leave_type: form.leaveType,
-        start_date: form.startDate,
-        end_date: form.endDate,
-        reason: form.reason.trim(),
+        leave_type: values.leaveType,
+        start_date: values.startDate,
+        end_date: values.endDate,
+        reason: values.reason?.trim() ?? "",
       });
 
       handleClose();
-    } catch {
-      // Error toast is handled in useCreateLeave hook.
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to create leave.",
+      );
     }
   };
 
@@ -116,27 +137,35 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
         <form
           className="mt-6 space-y-4"
           onSubmit={(event) => {
-            event.preventDefault();
-            void handleSubmit();
+            void form.handleSubmit(onSubmit)(event);
           }}
         >
+          {submitError && <Alert variant="error">{submitError}</Alert>}
+
           <div className="space-y-2">
             <Label htmlFor="leave-type">Leave Type</Label>
-            <Select
-              value={form.leaveType}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, leaveType: value as LeaveType }))
-              }
-            >
-              <SelectTrigger id="leave-type" className="w-full">
-                <SelectValue placeholder="Select leave type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ANNUAL">ANNUAL</SelectItem>
-                <SelectItem value="SICK">SICK</SelectItem>
-                <SelectItem value="UNPAID">UNPAID</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="leaveType"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id="leave-type"
+                    className={cn("w-full", errors.leaveType && "border-red-600")}
+                  >
+                    <SelectValue placeholder="Select leave type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ANNUAL">ANNUAL</SelectItem>
+                    <SelectItem value="SICK">SICK</SelectItem>
+                    <SelectItem value="UNPAID">UNPAID</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.leaveType && (
+              <p className="text-sm text-red-600">{errors.leaveType.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -145,18 +174,12 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
               id="start-date"
               type="date"
               min={today}
-              value={form.startDate}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  startDate: event.target.value,
-                  endDate:
-                    prev.endDate < event.target.value
-                      ? event.target.value
-                      : prev.endDate,
-                }))
-              }
+              {...form.register("startDate")}
+              className={cn(errors.startDate && "border-red-600")}
             />
+            {errors.startDate && (
+              <p className="text-sm text-red-600">{errors.startDate.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -164,12 +187,13 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
             <Input
               id="end-date"
               type="date"
-              min={form.startDate || today}
-              value={form.endDate}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, endDate: event.target.value }))
-              }
+              min={startDate || today}
+              {...form.register("endDate")}
+              className={cn(errors.endDate && "border-red-600")}
             />
+            {errors.endDate && (
+              <p className="text-sm text-red-600">{errors.endDate.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -177,10 +201,7 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
             <Input
               id="reason"
               placeholder="Reason for leave"
-              value={form.reason}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, reason: event.target.value }))
-              }
+              {...form.register("reason")}
             />
           </div>
 
@@ -189,13 +210,13 @@ export default function LeaveSheet({ employeeId }: LeaveSheetProps) {
               type="button"
               variant="outline"
               className="flex-1"
-              disabled={submitting}
+              disabled={isSubmitting}
               onClick={handleClose}
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Leave"}
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Leave"}
             </Button>
           </div>
         </form>

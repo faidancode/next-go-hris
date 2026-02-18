@@ -1,0 +1,161 @@
+## Route
+
+// internal/department/delivery/http/routes.go
+
+package department
+
+import (
+	"go-hris/internal/middleware"
+	"go-hris/internal/rbac"
+
+	"github.com/gin-gonic/gin"
+)
+
+func RegisterRoutes(
+	r *gin.RouterGroup,
+	h *Handler,
+	rbacService rbac.Service,
+) {
+	departments := r.Group("/departments")
+
+	departments.Use(middleware.AuthMiddleware())
+
+	{
+		departments.GET("", middleware.RBACAuthorize(rbacService, "department", "read"), h.GetAll)
+		departments.POST("", middleware.RBACAuthorize(rbacService, "department", "create"), h.Create)
+		departments.GET("/:id", middleware.RBACAuthorize(rbacService, "department", "read"), h.GetById)
+		departments.PUT("/:id", middleware.RBACAuthorize(rbacService, "department", "update"), h.Update)
+		departments.DELETE("/:id", middleware.RBACAuthorize(rbacService, "department", "delete"), h.Delete)
+	}
+}
+
+
+## DTO
+
+package department
+
+type CreateDepartmentRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
+type UpdateDepartmentRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
+type DepartmentResponse struct {
+	ID          string `json:"id"`
+	CompanyID   string `json:"company_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+## Handler
+
+
+func (h *Handler) Create(c *gin.Context) {
+	companyID := c.GetString("company_id")
+	var req CreateDepartmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
+		return
+	}
+
+	resp, err := h.service.Create(c.Request.Context(), companyID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusCreated, resp, nil)
+}
+
+func (h *Handler) GetAll(c *gin.Context) {
+	ctx := c.Request.Context()
+	companyID := c.GetString("company_id")
+
+	resp, err := h.service.GetAll(ctx, companyID)
+	if err != nil {
+		if errors.Is(err, errors.New("forbidden")) {
+			response.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if page < 1 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	total := int64(len(resp))
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if start > len(resp) {
+		start = len(resp)
+	}
+	if end > len(resp) {
+		end = len(resp)
+	}
+
+	meta := response.NewPaginationMeta(total, page, pageSize)
+	response.Success(c, http.StatusOK, resp[start:end], &meta)
+}
+
+func (h *Handler) GetById(c *gin.Context) {
+	ctx := c.Request.Context()
+	targetID := c.Param("id")
+	companyID := c.GetString("company_id")
+
+	resp, err := h.service.GetByID(ctx, companyID, targetID)
+	if err != nil {
+		if errors.Is(err, errors.New("forbidden")) {
+			response.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, resp, nil)
+}
+
+func (h *Handler) Update(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
+	companyID := c.GetString("company_id")
+	var req UpdateDepartmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
+		return
+	}
+
+	resp, err := h.service.Update(ctx, companyID, id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, resp, nil)
+}
+
+func (h *Handler) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
+	companyID := c.GetString("company_id")
+
+	if err := h.service.Delete(ctx, companyID, id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, gin.H{"deleted": true}, nil)
+}

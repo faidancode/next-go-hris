@@ -10,11 +10,13 @@ import {
 } from "@/components/ui/sidebar";
 import {
   BookUser,
+  BriefcaseBusiness,
   Building,
   Building2,
   ChartArea,
   Plane,
   ReceiptText,
+  Users,
 } from "lucide-react";
 import { can } from "@/lib/rbac/can";
 
@@ -30,8 +32,15 @@ const SIDEBAR_ITEMS = [
   {
     title: "Positions",
     url: "/positions",
-    icon: BookUser,
+    icon: BriefcaseBusiness,
     resource: "position",
+    action: "read",
+  },
+  {
+    title: "Employees",
+    url: "/employees",
+    icon: Users,
+    resource: "employee",
     action: "read",
   },
   {

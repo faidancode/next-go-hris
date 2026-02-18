@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert } from "@/components/shared/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +19,14 @@ import {
 } from "@/components/ui/sheet";
 import { useCreatePosition, useUpdatePosition } from "@/hooks/use-position";
 import { usePositionSheet } from "@/hooks/use-position-sheet";
-import { FormEvent, useState } from "react";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import {
+  positionSchema,
+  type PositionFormValues,
+} from "@/lib/validations/position-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 
 type DepartmentOption = {
   id: string;
@@ -31,105 +38,6 @@ type PositionSheetProps = {
   departmentsLoading: boolean;
 };
 
-type PositionSheetFormProps = {
-  formKey: string;
-  mode: "create" | "edit";
-  defaultName?: string;
-  defaultDepartmentId?: string;
-  submitting: boolean;
-  departmentsLoading: boolean;
-  departmentOptions: DepartmentOption[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onClose: () => void;
-};
-
-function PositionSheetForm({
-  formKey,
-  mode,
-  defaultName,
-  defaultDepartmentId,
-  submitting,
-  departmentsLoading,
-  departmentOptions,
-  onSubmit,
-  onClose,
-}: PositionSheetFormProps) {
-  const [departmentId, setDepartmentId] = useState(
-    defaultDepartmentId || "__none__",
-  );
-
-  return (
-    <form
-      key={formKey}
-      className="mt-6 space-y-4"
-      onSubmit={(event) => {
-        void onSubmit(event);
-      }}
-    >
-      <div className="space-y-2">
-        <Label htmlFor="department-id">Department</Label>
-        <Select
-          value={departmentId}
-          onValueChange={setDepartmentId}
-          disabled={departmentsLoading}
-        >
-          <SelectTrigger id="department-id" className="w-full">
-            <SelectValue
-              placeholder={
-                departmentsLoading
-                  ? "Loading departments..."
-                  : "Select department"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">No department</SelectItem>
-            {departmentOptions.map((department) => (
-              <SelectItem key={department.id} value={department.id}>
-                {department.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <input
-          type="hidden"
-          name="department_id"
-          value={departmentId}
-          readOnly
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="position-name">Name</Label>
-        <Input
-          id="position-name"
-          name="name"
-          placeholder="Position name"
-          defaultValue={defaultName ?? ""}
-        />
-      </div>
-
-      <div className="flex gap-2 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          disabled={submitting}
-          onClick={onClose}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" className="flex-1" disabled={submitting}>
-          {submitting
-            ? "Saving..."
-            : mode === "edit"
-              ? "Update Position"
-              : "Create Position"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export default function PositionSheet({
   departmentOptions,
   departmentsLoading,
@@ -137,46 +45,64 @@ export default function PositionSheet({
   const { open, mode, editingId, defaultValues, close } = usePositionSheet();
   const createMutation = useCreatePosition();
   const updateMutation = useUpdatePosition();
-  const submitting = createMutation.isPending || updateMutation.isPending;
-  const formKey = `${mode}:${editingId ?? "new"}:${open ? "open" : "closed"}`;
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const form = useForm<PositionFormValues>({
+    resolver: zodResolver(positionSchema),
+    defaultValues: {
+      name: "",
+      department_id: "",
+    },
+  });
+
+  const {
+    formState: { errors },
+    reset,
+    control,
+  } = form;
+
+  useEffect(() => {
+    if (!open) return;
+
+    reset({
+      name: defaultValues.name ?? "",
+      department_id: defaultValues.department_id ?? "",
+    });
+  }, [defaultValues, open, reset]);
 
   const handleClose = () => {
+    setSubmitError(null);
+    reset({
+      name: "",
+      department_id: "",
+    });
     close();
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSubmit = async (values: PositionFormValues) => {
+    setSubmitError(null);
 
-    const formData = new FormData(event.currentTarget);
-    const name = String(formData.get("name") ?? "").trim();
-    const rawDepartmentId = String(formData.get("department_id") ?? "").trim();
-    const selectedDepartmentId =
-      rawDepartmentId === "__none__" ? "" : rawDepartmentId;
-
-    if (!name) {
-      toast.error("Position name is required.");
-      return;
-    }
+    const payload = {
+      name: values.name.trim(),
+      department_id: values.department_id?.trim() || undefined,
+    };
 
     try {
       if (mode === "create") {
-        await createMutation.mutateAsync({
-          name,
-          department_id: selectedDepartmentId || undefined,
-        });
+        await createMutation.mutateAsync(payload);
       } else if (mode === "edit" && editingId) {
         await updateMutation.mutateAsync({
           id: editingId,
-          payload: {
-            name,
-            department_id: selectedDepartmentId || undefined,
-          },
+          payload,
         });
       }
 
       handleClose();
-    } catch {
-      // Error toast is handled in hooks.
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to save position.",
+      );
     }
   };
 
@@ -194,18 +120,87 @@ export default function PositionSheet({
           </SheetTitle>
         </SheetHeader>
 
-        <PositionSheetForm
-          key={formKey}
-          formKey={formKey}
-          mode={mode}
-          defaultName={defaultValues.name}
-          defaultDepartmentId={defaultValues.department_id}
-          submitting={submitting}
-          departmentsLoading={departmentsLoading}
-          departmentOptions={departmentOptions}
-          onSubmit={handleSubmit}
-          onClose={handleClose}
-        />
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={(event) => {
+            void form.handleSubmit(onSubmit)(event);
+          }}
+        >
+          {submitError && <Alert variant="error">{submitError}</Alert>}
+
+          <div className="space-y-2">
+            <Label htmlFor="department-id">Department</Label>
+            <Controller
+              control={control}
+              name="department_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value || "__none__"}
+                  onValueChange={(value) => {
+                    field.onChange(value === "__none__" ? "" : value);
+                  }}
+                  disabled={departmentsLoading}
+                >
+                  <SelectTrigger
+                    id="department-id"
+                    className={cn("w-full", errors.department_id && "border-red-600")}
+                  >
+                    <SelectValue
+                      placeholder={
+                        departmentsLoading
+                          ? "Loading departments..."
+                          : "Select department"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No department</SelectItem>
+                    {departmentOptions.map((department) => (
+                      <SelectItem key={department.id} value={department.id}>
+                        {department.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.department_id && (
+              <p className="text-sm text-red-600">{errors.department_id.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="position-name">Name</Label>
+            <Input
+              id="position-name"
+              placeholder="Position name"
+              {...form.register("name")}
+              className={cn(errors.name && "border-red-600")}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-600">{errors.name.message}</p>
+            )}
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              disabled={isSubmitting}
+              onClick={handleClose}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting
+                ? "Saving..."
+                : mode === "edit"
+                  ? "Update Position"
+                  : "Create Position"}
+            </Button>
+          </div>
+        </form>
       </SheetContent>
     </Sheet>
   );

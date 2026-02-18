@@ -19,15 +19,26 @@ export type CreateLeavePayload = {
   reason: string;
 };
 
+export type LeaveStatus =
+  | "PENDING"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
+
 export type UpdateLeavePayload = {
   employee_id: string;
   leave_type: "ANNUAL" | "SICK" | "UNPAID";
   start_date: string;
   end_date: string;
   reason: string;
-  status: "APPROVED" | "REJECTED";
+  status: LeaveStatus;
   approved_by?: string;
   rejection_reason?: string;
+};
+
+export type RejectLeavePayload = {
+  rejection_reason: string;
 };
 
 function normalizeLeaves(payload: unknown): Leave[] {
@@ -116,6 +127,18 @@ export async function createLeave(payload: CreateLeavePayload) {
 
 export async function updateLeave(id: string, payload: UpdateLeavePayload) {
   return apiClient.put(`/leaves/${id}`, payload);
+}
+
+export async function submitLeave(id: string) {
+  return apiClient.post(`/leaves/${id}/submit`, {});
+}
+
+export async function approveLeave(id: string) {
+  return apiClient.post(`/leaves/${id}/approve`, {});
+}
+
+export async function rejectLeave(id: string, payload: RejectLeavePayload) {
+  return apiClient.post(`/leaves/${id}/reject`, payload);
 }
 
 export async function deleteLeave(id: string) {

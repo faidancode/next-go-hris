@@ -8,20 +8,27 @@ import { formatDateID } from "@/lib/utils";
 
 const STATUS_BADGE_CLASS: Record<LeaveStatus, string> = {
   PENDING: "bg-amber-100 text-amber-700 border-amber-200",
+  SUBMITTED: "bg-blue-100 text-blue-700 border-blue-200",
   APPROVED: "bg-emerald-100 text-emerald-700 border-emerald-200",
   REJECTED: "bg-red-100 text-red-700 border-red-200",
   CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 type LeaveColumnsOptions = {
+  canCreate: boolean;
   canApprove: boolean;
+  onSubmit: (id: string) => void;
   onApprove: (id: string) => void;
+  onReject: (id: string, reason: string) => void;
   onDelete?: (id: string) => void;
 };
 
 export function columns({
+  canCreate,
   canApprove,
+  onSubmit,
   onApprove,
+  onReject,
   onDelete,
 }: LeaveColumnsOptions): ColumnDef<Leave>[] {
   return [
@@ -50,7 +57,7 @@ export function columns({
             </span>
             {!isSame && (
               <span className="text-xs text-muted-foreground">
-                sampai {formatDateID(row.original.end_date, "short")}
+                - {formatDateID(row.original.end_date, "short")}
               </span>
             )}
           </div>
@@ -93,12 +100,16 @@ export function columns({
           <DataTableRowActions
             menu="leaves"
             id={leave.id}
-            entityName={leave.employee_name || leave.employee_id}
+            entityName="Leave Request"
+            onSubmit={onSubmit}
             onApprove={onApprove}
+            onReject={onReject}
             onDelete={onDelete}
             showView={false}
             showEdit={false}
-            showApproval={canApprove && leave.status === "PENDING"}
+            showSubmission={canCreate && leave.status === "PENDING"}
+            showApproval={canApprove && leave.status === "SUBMITTED"}
+            showRejection={canApprove && leave.status === "SUBMITTED"}
             showDelete={canApprove && Boolean(onDelete)}
           />
         );

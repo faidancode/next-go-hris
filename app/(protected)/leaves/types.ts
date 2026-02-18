@@ -1,7 +1,12 @@
 "use client";
 
 export type LeaveType = "ANNUAL" | "SICK" | "UNPAID";
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type LeaveStatus =
+  | "PENDING"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
 
 export type Leave = {
   id: string;
@@ -16,4 +21,3 @@ export type Leave = {
   approved_by?: string | null;
   rejection_reason?: string | null;
 };
-

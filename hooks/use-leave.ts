@@ -1,9 +1,13 @@
 import {
+  approveLeave,
   createLeave,
   deleteLeave,
   getLeaves,
+  rejectLeave,
+  submitLeave,
   updateLeave,
   type CreateLeavePayload,
+  type RejectLeavePayload,
   type UpdateLeavePayload,
 } from "@/lib/api/leave";
 import { getErrorMessage, getReadableErrorCode } from "@/lib/api/errors";
@@ -76,6 +80,63 @@ export const useDeleteLeave = () => {
     onError: (error) => {
       const code = getReadableErrorCode(error);
       const message = getErrorMessage(error, "Failed to delete leave.");
+      toast.error(code, { description: message });
+    },
+  });
+};
+
+export const useSubmitLeave = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => submitLeave(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      toast.success("Leave request submitted.");
+    },
+    onError: (error) => {
+      const code = getReadableErrorCode(error);
+      const message = getErrorMessage(error, "Failed to submit leave.");
+      toast.error(code, { description: message });
+    },
+  });
+};
+
+export const useApproveLeave = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => approveLeave(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      toast.success("Leave request approved.");
+    },
+    onError: (error) => {
+      const code = getReadableErrorCode(error);
+      const message = getErrorMessage(error, "Failed to approve leave.");
+      toast.error(code, { description: message });
+    },
+  });
+};
+
+export const useRejectLeave = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: RejectLeavePayload;
+    }) => rejectLeave(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      toast.success("Leave request rejected.");
+    },
+    onError: (error) => {
+      const code = getReadableErrorCode(error);
+      const message = getErrorMessage(error, "Failed to reject leave.");
       toast.error(code, { description: message });
     },
   });

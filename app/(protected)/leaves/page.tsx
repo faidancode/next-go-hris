@@ -7,13 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLeaveSheet } from "@/hooks/use-leave-sheet";
-import { useDeleteLeave, useLeaves, useUpdateLeave } from "@/hooks/use-leave";
+import {
+  useApproveLeave,
+  useDeleteLeave,
+  useLeaves,
+  useRejectLeave,
+  useSubmitLeave,
+} from "@/hooks/use-leave";
 import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/rbac/can";
 import { PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDebounce } from "use-debounce";
-import { toast } from "sonner";
 import { columns } from "./columns";
 import LeaveSheet from "./sheet";
 
@@ -31,7 +36,9 @@ export default function LeavesPage() {
   const [sort, setSort] = useState("start_date:desc");
 
   const leavesQuery = useLeaves(page, pageSize, debouncedSearch, sort, canRead);
-  const updateLeaveMutation = useUpdateLeave();
+  const submitLeaveMutation = useSubmitLeave();
+  const approveLeaveMutation = useApproveLeave();
+  const rejectLeaveMutation = useRejectLeave();
   const deleteLeaveMutation = useDeleteLeave();
 
   useEffect(() => {
@@ -66,27 +73,18 @@ export default function LeavesPage() {
   }, []);
 
   const handleApprove = async (id: string) => {
-    const session = getSession();
-    const leave = leavesQuery.data?.data.find((item) => item.id === id);
-    if (!leave) return;
-
     try {
-      await updateLeaveMutation.mutateAsync({
-        id,
-        payload: {
-          employee_id: leave.employee_id,
-          leave_type: leave.leave_type,
-          start_date: leave.start_date,
-          end_date: leave.end_date,
-          reason: leave.reason ?? "",
-          status: "APPROVED",
-          approved_by: session?.user?.employee_id,
-        },
-      });
-
-      toast.success("Leave request approved.");
+      await approveLeaveMutation.mutateAsync(id);
     } catch {
-      // Error toast is handled in useUpdateLeave hook.
+      // Error toast is handled in useApproveLeave hook.
+    }
+  };
+
+  const handleSubmit = async (id: string) => {
+    try {
+      await submitLeaveMutation.mutateAsync(id);
+    } catch {
+      // Error toast is handled in useSubmitLeave hook.
     }
   };
 
@@ -95,6 +93,17 @@ export default function LeavesPage() {
       await deleteLeaveMutation.mutateAsync(id);
     } catch {
       // Error toast is handled in useDeleteLeave hook.
+    }
+  };
+
+  const handleReject = async (id: string, reason: string) => {
+    try {
+      await rejectLeaveMutation.mutateAsync({
+        id,
+        payload: { rejection_reason: reason },
+      });
+    } catch {
+      // Error toast is handled in useRejectLeave hook.
     }
   };
 
@@ -144,9 +153,16 @@ export default function LeavesPage() {
           <DataTable
             key={`${page}-${pageSize}`}
             columns={columns({
+              canCreate,
               canApprove,
+              onSubmit: (id) => {
+                void handleSubmit(id);
+              },
               onApprove: (id) => {
                 void handleApprove(id);
+              },
+              onReject: (id, reason) => {
+                void handleReject(id, reason);
               },
               onDelete: (id) => {
                 void handleDelete(id);

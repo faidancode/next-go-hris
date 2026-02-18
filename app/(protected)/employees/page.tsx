@@ -11,6 +11,7 @@ import { useDepartments } from "@/hooks/use-department";
 import { usePositions } from "@/hooks/use-position";
 import { PlusCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import { columns } from "./columns";
@@ -18,8 +19,14 @@ import EmployeeSheet from "./sheet";
 import type { Employee } from "./types";
 import { useEmployeeSheet } from "@/hooks/use-employee-sheet";
 import { useDeleteEmployee, useEmployees } from "@/hooks/use-employee";
+import { useAuthStore } from "@/app/stores/auth";
 
 export default function EmployeesPage() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const isEmployeeRole = user?.role?.toLowerCase() === "employee";
+
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
@@ -38,7 +45,7 @@ export default function EmployeesPage() {
     pageSize,
     debouncedSearch,
     sort,
-    canRead,
+    canRead && !isEmployeeRole,
   );
   const departmentsQuery = useDepartments(1, 1000, "", "name:asc", canRead);
   const positionsQuery = usePositions(1, 1000, "", "name:asc", canRead);
@@ -62,6 +69,12 @@ export default function EmployeesPage() {
       })),
     [positionsQuery.data?.data],
   );
+
+  useEffect(() => {
+    if (hasHydrated && isEmployeeRole) {
+      router.replace("/employees/me");
+    }
+  }, [hasHydrated, isEmployeeRole, router]);
 
   useEffect(() => {
     let mounted = true;
@@ -95,6 +108,15 @@ export default function EmployeesPage() {
       mounted = false;
     };
   }, []);
+
+  if (!hasHydrated || isEmployeeRole) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+    );
+  }
 
   const handleDelete = async (id: string) => {
     try {

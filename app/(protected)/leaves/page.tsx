@@ -1,64 +1,130 @@
 "use client";
 
-import { Can } from "@/components/guard/Can";
 import { ForbiddenState } from "@/components/guard/ForbiddenState";
+import AppHeader from "@/components/shared/app-header";
+import { DataTable } from "@/components/shared/table/data-table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient } from "@/lib/api/client";
+import { useLeaveSheet } from "@/hooks/use-leave-sheet";
+import { useLeaves, useUpdateLeave } from "@/hooks/use-leave";
+import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/rbac/can";
+import { PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-
-type Leave = {
-  id: string;
-  employee_name?: string;
-  status?: string;
-};
-
-function normalizeLeaves(payload: unknown): Leave[] {
-  if (Array.isArray(payload)) return payload as Leave[];
-  if (payload && typeof payload === "object") {
-    const body = payload as Record<string, unknown>;
-    if (Array.isArray(body.items)) return body.items as Leave[];
-  }
-  return [];
-}
+import { useDebounce } from "use-debounce";
+import { toast } from "sonner";
+import { columns } from "./columns";
+import LeaveSheet from "./sheet";
+import type { Leave } from "./types";
 
 export default function LeavesPage() {
-  const [loading, setLoading] = useState(true);
+  const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
-  const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const { openCreate } = useLeaveSheet();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebounce(search, 300);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sort, setSort] = useState("start_date:desc");
+
+  const leavesQuery = useLeaves(page, pageSize, debouncedSearch, sort, canRead);
+  const updateLeaveMutation = useUpdateLeave();
 
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+    async function bootstrap() {
       try {
-        const allowed = await can("leave", "read");
+        const [readAllowed, createAllowed, approveAllowed] = await Promise.all([
+          can("leave", "read"),
+          can("leave", "create"),
+          can("leave", "approve"),
+        ]);
+
         if (!mounted) return;
 
-        setCanRead(allowed);
-        if (!allowed) return;
+        setCanRead(readAllowed);
+        setCanCreate(createAllowed);
+        setCanApprove(approveAllowed);
 
-        const response = await apiClient.get<unknown>("/leaves");
+      } catch {
         if (!mounted) return;
-        setLeaves(normalizeLeaves(response));
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load leaves.");
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setPermissionLoading(false);
       }
     }
 
-    load();
+    void bootstrap();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  if (loading) {
+  const handleApprove = async (leave: Leave) => {
+    const session = getSession();
+    setApprovingId(leave.id);
+
+    try {
+      await updateLeaveMutation.mutateAsync({
+        id: leave.id,
+        payload: {
+          employee_id: leave.employee_id,
+          leave_type: leave.leave_type,
+          start_date: leave.start_date,
+          end_date: leave.end_date,
+          reason: leave.reason ?? "",
+          status: "APPROVED",
+          approved_by: session?.user?.employee_id,
+        },
+      });
+
+      toast.success("Leave request approved.");
+    } catch {
+      // Error toast is handled in useUpdateLeave hook.
+    }
+    setApprovingId(null);
+  };
+
+  const handleReject = async (leave: Leave) => {
+    const rejectionReason = window
+      .prompt("Masukkan alasan reject:", leave.rejection_reason ?? "")
+      ?.trim();
+
+    if (!rejectionReason) {
+      toast.error("Rejection reason is required.");
+      return;
+    }
+
+    setApprovingId(leave.id);
+
+    try {
+      await updateLeaveMutation.mutateAsync({
+        id: leave.id,
+        payload: {
+          employee_id: leave.employee_id,
+          leave_type: leave.leave_type,
+          start_date: leave.start_date,
+          end_date: leave.end_date,
+          reason: leave.reason ?? "",
+          status: "REJECTED",
+          rejection_reason: rejectionReason,
+        },
+      });
+
+      toast.success("Leave request rejected.");
+    } catch {
+      // Error toast is handled in useUpdateLeave hook.
+    }
+    setApprovingId(null);
+  };
+
+  if (permissionLoading || leavesQuery.isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-8 w-52" />
@@ -72,56 +138,60 @@ export default function LeavesPage() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Leaves</h1>
-        <Can resource="leave" action="create" fallback={null}>
-          <Button type="button">Create Leave</Button>
-        </Can>
+    <>
+      <AppHeader title="Leaves" />
+
+      <div className="container pt-2">
+        <div className="flex items-center justify-between mb-4 mt-6 gap-2">
+          <Input
+            type="text"
+            placeholder="Search leave..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            className="bg-white p-2 border rounded-lg w-64"
+          />
+
+          {canCreate && (
+            <Button onClick={openCreate}>
+              <PlusCircle className="size-4" /> Create Leave
+            </Button>
+          )}
+        </div>
+
+        {leavesQuery.error ? (
+          <ForbiddenState
+            title="Request error"
+            description={leavesQuery.error.message}
+          />
+        ) : (
+          <DataTable
+            key={`${page}-${pageSize}`}
+            columns={columns({
+              canApprove,
+              approvingId,
+              onApprove: (leave) => {
+                void handleApprove(leave);
+              },
+              onReject: (leave) => {
+                void handleReject(leave);
+              },
+            })}
+            data={leavesQuery.data?.data ?? []}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            totalPages={leavesQuery.data?.meta.totalPages ?? 1}
+            sort={sort}
+            setSort={setSort}
+          />
+        )}
       </div>
 
-      {error && <ForbiddenState title="Request error" description={error} />}
-
-      <div className="overflow-hidden rounded-lg border bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left">
-            <tr>
-              <th className="p-3">Employee</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaves.length === 0 && (
-              <tr>
-                <td colSpan={3} className="p-4 text-muted-foreground">
-                  No leave records.
-                </td>
-              </tr>
-            )}
-            {leaves.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-3">{item.employee_name || "-"}</td>
-                <td className="p-3">{item.status || "-"}</td>
-                <td className="p-3">
-                  <div className="flex gap-2">
-                    <Can resource="leave" action="approve" fallback={null}>
-                      <Button size="sm" variant="outline">
-                        Approve
-                      </Button>
-                    </Can>
-                    <Can resource="leave" action="approve" fallback={null}>
-                      <Button size="sm" variant="ghost">
-                        Reject
-                      </Button>
-                    </Can>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <LeaveSheet employeeId={getSession()?.user?.employee_id} />
+    </>
   );
 }

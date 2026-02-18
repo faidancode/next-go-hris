@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { DataTableRowActions } from "@/components/shared/table/data-table-row-actions";
 import { Badge } from "@/components/ui/badge";
 import type { Leave, LeaveStatus } from "./types";
+import { formatDateID } from "@/lib/utils";
 
 const STATUS_BADGE_CLASS: Record<LeaveStatus, string> = {
   PENDING: "bg-amber-100 text-amber-700 border-amber-200",
@@ -15,12 +16,13 @@ const STATUS_BADGE_CLASS: Record<LeaveStatus, string> = {
 type LeaveColumnsOptions = {
   canApprove: boolean;
   onApprove: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
 };
 
 export function columns({
   canApprove,
   onApprove,
+  onDelete,
 }: LeaveColumnsOptions): ColumnDef<Leave>[] {
   return [
     {
@@ -38,7 +40,22 @@ export function columns({
       accessorKey: "start_date",
       header: "Date",
       enableSorting: true,
-      cell: ({ row }) => `${row.original.start_date} - ${row.original.end_date}`,
+      cell: ({ row }) => {
+        const isSame = row.original.start_date === row.original.end_date;
+
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium text-sm">
+              {formatDateID(row.original.start_date, "short")}
+            </span>
+            {!isSame && (
+              <span className="text-xs text-muted-foreground">
+                sampai {formatDateID(row.original.end_date, "short")}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "total_days",
@@ -57,7 +74,10 @@ export function columns({
       header: "Status",
       enableSorting: true,
       cell: ({ row }) => (
-        <Badge variant="outline" className={STATUS_BADGE_CLASS[row.original.status]}>
+        <Badge
+          variant="outline"
+          className={STATUS_BADGE_CLASS[row.original.status]}
+        >
           {row.original.status}
         </Badge>
       ),
@@ -79,7 +99,7 @@ export function columns({
             showView={false}
             showEdit={false}
             showApproval={canApprove && leave.status === "PENDING"}
-            showDelete={canApprove}
+            showDelete={canApprove && Boolean(onDelete)}
           />
         );
       },

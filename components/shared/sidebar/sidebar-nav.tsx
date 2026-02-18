@@ -9,9 +9,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
-  BookUser,
+  CalendarCheck2,
   BriefcaseBusiness,
-  Building,
   Building2,
   ChartArea,
   Plane,
@@ -48,6 +47,13 @@ const SIDEBAR_ITEMS = [
     url: "/leaves",
     icon: Plane,
     resource: "leave",
+    action: "read",
+  },
+  {
+    title: "Attendance",
+    url: "/attendances",
+    icon: CalendarCheck2,
+    resource: "attendance",
     action: "read",
   },
   {
@@ -109,14 +115,14 @@ export function SidebarNav() {
               asChild
               className={`my-1 rounded-none border-l-4 p-5 transition-all ${
                 active
-                  ? "border-primary bg-primary/10"
-                  : "border-white text-gray-600 hover:bg-primary-50"
+                  ? "border-secondary bg-primary/10"
+                  : "border-white text-gray-600 hover:bg-secondary-100"
               }`}
             >
               <a href={item.url} className="flex items-center gap-3">
                 <item.icon
-                  size={22}
-                  className={active ? "text-primary" : "text-gray-400"}
+                  size={28}
+                  className={active ? "text-secondary" : "text-gray-400"}
                 />
                 <span
                   className={`text-base font-semibold ${

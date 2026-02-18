@@ -6,39 +6,50 @@ import { DataTable } from "@/components/shared/table/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDepartments, useDeleteDepartment } from "@/hooks/use-department";
-import { useDepartmentSheet } from "@/hooks/use-department-sheet";
 import { can } from "@/lib/rbac/can";
+import { useDepartments } from "@/hooks/use-department";
 import { PlusCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import { columns } from "./columns";
-import DepartmentSheet from "./sheet";
-import type { Department } from "./types";
+import PositionSheet from "./sheet";
+import type { Position } from "./types";
+import { usePositionSheet } from "@/hooks/use-position-sheet";
+import { useDeletePosition, usePositions } from "@/hooks/use-position";
 
-export default function DepartmentsPage() {
+export default function PositionsPage() {
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
   const [canUpdate, setCanUpdate] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
 
-  const { openCreate, openEdit } = useDepartmentSheet();
+  const { openCreate, openEdit } = usePositionSheet();
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sort, setSort] = useState("name:asc");
 
-  const departmentsQuery = useDepartments(
+  const positionsQuery = usePositions(
     page,
     pageSize,
     debouncedSearch,
     sort,
     canRead,
   );
-  const deleteDepartmentMutation = useDeleteDepartment();
+  const departmentsQuery = useDepartments(1, 1000, "", "name:asc", canRead);
+  const deletePositionMutation = useDeletePosition();
+
+  const departmentOptions = useMemo(
+    () =>
+      (departmentsQuery.data?.data ?? []).map((department) => ({
+        id: department.id,
+        name: department.name,
+      })),
+    [departmentsQuery.data?.data],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -47,10 +58,10 @@ export default function DepartmentsPage() {
       try {
         const [readAllowed, createAllowed, updateAllowed, deleteAllowed] =
           await Promise.all([
-            can("department", "read"),
-            can("department", "create"),
-            can("department", "update"),
-            can("department", "delete"),
+            can("position", "read"),
+            can("position", "create"),
+            can("position", "update"),
+            can("position", "delete"),
           ]);
 
         if (!mounted) return;
@@ -75,26 +86,26 @@ export default function DepartmentsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteDepartmentMutation.mutateAsync(id);
+      await deletePositionMutation.mutateAsync(id);
     } catch {
       // Error toast is handled in hook.
     }
   };
 
-  const handleEdit = (department: Department) => {
+  const handleEdit = (position: Position) => {
     if (!canUpdate) {
-      toast.error("You are not allowed to update departments.");
+      toast.error("You are not allowed to update positions.");
       return;
     }
 
     openEdit({
-      id: department.id,
-      name: department.name,
-      parent_department_id: department.parent_department_id ?? "",
+      id: position.id,
+      name: position.name,
+      department_id: position.department_id ?? "",
     });
   };
 
-  if (permissionLoading || departmentsQuery.isLoading) {
+  if (permissionLoading || positionsQuery.isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-8 w-52" />
@@ -105,19 +116,19 @@ export default function DepartmentsPage() {
 
   if (!canRead) {
     return (
-      <ForbiddenState description="You are not allowed to read departments." />
+      <ForbiddenState description="You are not allowed to read positions." />
     );
   }
 
   return (
     <>
-      <AppHeader title="Departments" />
+      <AppHeader title="Positions" />
 
       <div className="container pt-2">
         <div className="flex items-center justify-between mb-4 mt-6 gap-2">
           <Input
             type="text"
-            placeholder="Search department..."
+            placeholder="Search position..."
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -128,15 +139,15 @@ export default function DepartmentsPage() {
 
           {canCreate && (
             <Button onClick={openCreate}>
-              <PlusCircle className="size-4" /> Create Department
+              <PlusCircle className="size-4" /> Create Position
             </Button>
           )}
         </div>
 
-        {departmentsQuery.error ? (
+        {positionsQuery.error ? (
           <ForbiddenState
             title="Request error"
-            description={departmentsQuery.error.message}
+            description={positionsQuery.error.message}
           />
         ) : (
           <DataTable
@@ -149,19 +160,22 @@ export default function DepartmentsPage() {
                 void handleDelete(id);
               },
             })}
-            data={departmentsQuery.data?.data ?? []}
+            data={positionsQuery.data?.data ?? []}
             page={page}
             setPage={setPage}
             pageSize={pageSize}
             setPageSize={setPageSize}
-            totalPages={departmentsQuery.data?.meta.totalPages ?? 1}
+            totalPages={positionsQuery.data?.meta.totalPages ?? 1}
             sort={sort}
             setSort={setSort}
           />
         )}
       </div>
 
-      <DepartmentSheet />
+      <PositionSheet
+        departmentOptions={departmentOptions}
+        departmentsLoading={departmentsQuery.isLoading}
+      />
     </>
   );
 }

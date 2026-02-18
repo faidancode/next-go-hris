@@ -2,12 +2,12 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTableRowActions } from "@/components/shared/table/data-table-row-actions";
-import type { Department } from "./types";
+import { Position } from "./types";
 
-type DepartmentColumnsOptions = {
+type PositionColumnsOptions = {
   canUpdate: boolean;
   canDelete: boolean;
-  onEdit: (department: Department) => void;
+  onEdit: (position: Position) => void;
   onDelete: (id: string) => void;
 };
 
@@ -16,7 +16,7 @@ export function columns({
   canDelete,
   onEdit,
   onDelete,
-}: DepartmentColumnsOptions): ColumnDef<Department>[] {
+}: PositionColumnsOptions): ColumnDef<Position>[] {
   return [
     {
       accessorKey: "name",
@@ -24,24 +24,24 @@ export function columns({
       enableSorting: true,
     },
     {
-      accessorKey: "parent_department_id",
-      header: "Parent Department ID",
+      accessorKey: "department_name",
+      header: "Department",
       enableSorting: false,
-      cell: ({ row }) => row.original.parent_department_id || "-",
+      cell: ({ row }) => row.original.department_name || "-",
     },
     {
       id: "actions",
       header: "Action",
       enableSorting: false,
       cell: ({ row }) => {
-        const department = row.original;
+        const position = row.original;
 
         return (
           <DataTableRowActions
-            menu="departments"
-            id={department.id}
-            entityName={department.name}
-            onEdit={() => onEdit(department)}
+            menu="positions"
+            id={position.id}
+            entityName={position.name}
+            onEdit={() => onEdit(position)}
             onDelete={onDelete}
             showView={false}
             showEdit={canUpdate}

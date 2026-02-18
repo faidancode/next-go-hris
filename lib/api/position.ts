@@ -1,8 +1,8 @@
+import { Position } from "@/app/(protected)/positions/types";
 import { apiClient } from "@/lib/api/client";
-import type { Leave } from "@/app/(protected)/leaves/types";
 
-export type LeaveListResponse = {
-  data: Leave[];
+export type PositionListResponse = {
+  data: Position[];
   meta: {
     page: number;
     pageSize: number;
@@ -11,31 +11,22 @@ export type LeaveListResponse = {
   };
 };
 
-export type CreateLeavePayload = {
-  employee_id: string;
-  leave_type: "ANNUAL" | "SICK" | "UNPAID";
-  start_date: string;
-  end_date: string;
-  reason: string;
+export type CreatePositionPayload = {
+  name: string;
+  department_id?: string;
 };
 
-export type UpdateLeavePayload = {
-  employee_id: string;
-  leave_type: "ANNUAL" | "SICK" | "UNPAID";
-  start_date: string;
-  end_date: string;
-  reason: string;
-  status: "APPROVED" | "REJECTED";
-  approved_by?: string;
-  rejection_reason?: string;
+export type UpdatePositionPayload = {
+  name: string;
+  department_id?: string;
 };
 
-function normalizeLeaves(payload: unknown): Leave[] {
-  if (Array.isArray(payload)) return payload as Leave[];
+function normalizePositions(payload: unknown): Position[] {
+  if (Array.isArray(payload)) return payload as Position[];
   if (payload && typeof payload === "object") {
     const body = payload as Record<string, unknown>;
-    if (Array.isArray(body.items)) return body.items as Leave[];
-    if (Array.isArray(body.data)) return body.data as Leave[];
+    if (Array.isArray(body.items)) return body.items as Position[];
+    if (Array.isArray(body.data)) return body.data as Position[];
   }
   return [];
 }
@@ -55,37 +46,29 @@ function compareValues(a: unknown, b: unknown, desc: boolean) {
   return desc ? result * -1 : result;
 }
 
-export async function getLeaves(
+export async function getPositions(
   page: number,
   pageSize: number,
   search: string,
   sort: string,
-): Promise<LeaveListResponse> {
-  const response = await apiClient.get<unknown>("/leaves");
-  const leaves = normalizeLeaves(response);
+): Promise<PositionListResponse> {
+  const response = await apiClient.get<unknown>("/positions");
+  const positions = normalizePositions(response);
 
   const keyword = search.trim().toLowerCase();
   const filtered = keyword
-    ? leaves.filter((item) => {
-        const haystack = [
-          item.employee_name,
-          item.employee_id,
-          item.leave_type,
-          item.reason,
-          item.status,
-          item.start_date,
-          item.end_date,
-        ]
+    ? positions.filter((item) => {
+        const haystack = [item.name, item.department_id]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
-
         return haystack.includes(keyword);
       })
-    : leaves;
+    : positions;
 
   const [sortField, sortDirection] = sort.split(":");
   const desc = sortDirection === "desc";
+
   const sorted = [...filtered].sort((a, b) => {
     const left = (a as Record<string, unknown>)[sortField];
     const right = (b as Record<string, unknown>)[sortField];
@@ -110,14 +93,17 @@ export async function getLeaves(
   };
 }
 
-export async function createLeave(payload: CreateLeavePayload) {
-  return apiClient.post("/leaves", payload);
+export async function createPosition(payload: CreatePositionPayload) {
+  return apiClient.post("/positions", payload);
 }
 
-export async function updateLeave(id: string, payload: UpdateLeavePayload) {
-  return apiClient.put(`/leaves/${id}`, payload);
+export async function updatePosition(
+  id: string,
+  payload: UpdatePositionPayload,
+) {
+  return apiClient.put(`/positions/${id}`, payload);
 }
 
-export async function deleteLeave(id: string) {
-  return apiClient.delete(`/leaves/${id}`);
+export async function deletePosition(id: string) {
+  return apiClient.delete(`/positions/${id}`);
 }

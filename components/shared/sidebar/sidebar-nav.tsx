@@ -8,7 +8,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Building2, ChartArea, Plane, ReceiptText } from "lucide-react";
+import {
+  BookUser,
+  Building,
+  Building2,
+  ChartArea,
+  Plane,
+  ReceiptText,
+} from "lucide-react";
 import { can } from "@/lib/rbac/can";
 
 const SIDEBAR_ITEMS = [
@@ -20,7 +27,20 @@ const SIDEBAR_ITEMS = [
     resource: "department",
     action: "read",
   },
-  { title: "Leaves", url: "/leaves", icon: Plane, resource: "leave", action: "read" },
+  {
+    title: "Positions",
+    url: "/positions",
+    icon: BookUser,
+    resource: "position",
+    action: "read",
+  },
+  {
+    title: "Leaves",
+    url: "/leaves",
+    icon: Plane,
+    resource: "leave",
+    action: "read",
+  },
   {
     title: "Payrolls",
     url: "/payrolls",
@@ -54,7 +74,9 @@ export function SidebarNav() {
       );
 
       if (!mounted) return;
-      setVisibleItems(checks.filter((entry) => entry.allowed).map((entry) => entry.item));
+      setVisibleItems(
+        checks.filter((entry) => entry.allowed).map((entry) => entry.item),
+      );
     }
 
     resolveMenuAccess();

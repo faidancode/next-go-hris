@@ -1,8 +1,8 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { DataTableRowActions } from "@/components/shared/table/data-table-row-actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { Leave, LeaveStatus } from "./types";
 
 const STATUS_BADGE_CLASS: Record<LeaveStatus, string> = {
@@ -14,16 +14,13 @@ const STATUS_BADGE_CLASS: Record<LeaveStatus, string> = {
 
 type LeaveColumnsOptions = {
   canApprove: boolean;
-  approvingId: string | null;
-  onApprove: (leave: Leave) => void;
-  onReject: (leave: Leave) => void;
+  onApprove: (id: string) => void;
+  onDelete: (id: string) => void;
 };
 
 export function columns({
   canApprove,
-  approvingId,
   onApprove,
-  onReject,
 }: LeaveColumnsOptions): ColumnDef<Leave>[] {
   return [
     {
@@ -71,35 +68,21 @@ export function columns({
       enableSorting: false,
       cell: ({ row }) => {
         const leave = row.original;
-        const isPending = leave.status === "PENDING";
-        const isLoading = approvingId === leave.id;
-
-        if (!canApprove || !isPending) {
-          return <span className="text-muted-foreground">-</span>;
-        }
 
         return (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isLoading}
-              onClick={() => onApprove(leave)}
-            >
-              {isLoading ? "Processing..." : "Approve"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isLoading}
-              onClick={() => onReject(leave)}
-            >
-              {isLoading ? "Processing..." : "Reject"}
-            </Button>
-          </div>
+          <DataTableRowActions
+            menu="leaves"
+            id={leave.id}
+            entityName={leave.employee_name || leave.employee_id}
+            onApprove={onApprove}
+            onDelete={onDelete}
+            showView={false}
+            showEdit={false}
+            showApproval={canApprove && leave.status === "PENDING"}
+            showDelete={canApprove}
+          />
         );
       },
     },
   ];
 }
-

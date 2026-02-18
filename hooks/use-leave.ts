@@ -1,4 +1,11 @@
-import { createLeave, getLeaves, updateLeave, type CreateLeavePayload, type UpdateLeavePayload } from "@/lib/api/leave";
+import {
+  createLeave,
+  deleteLeave,
+  getLeaves,
+  updateLeave,
+  type CreateLeavePayload,
+  type UpdateLeavePayload,
+} from "@/lib/api/leave";
 import { getErrorMessage, getReadableErrorCode } from "@/lib/api/errors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -57,3 +64,19 @@ export const useUpdateLeave = () => {
   });
 };
 
+export const useDeleteLeave = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => deleteLeave(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      toast.success("Leave deleted successfully.");
+    },
+    onError: (error) => {
+      const code = getReadableErrorCode(error);
+      const message = getErrorMessage(error, "Failed to delete leave.");
+      toast.error(code, { description: message });
+    },
+  });
+};

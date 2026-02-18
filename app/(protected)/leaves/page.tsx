@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLeaveSheet } from "@/hooks/use-leave-sheet";
-import { useLeaves, useUpdateLeave } from "@/hooks/use-leave";
+import { useDeleteLeave, useLeaves, useUpdateLeave } from "@/hooks/use-leave";
 import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/rbac/can";
 import { PlusCircle } from "lucide-react";
@@ -16,14 +16,12 @@ import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import { columns } from "./columns";
 import LeaveSheet from "./sheet";
-import type { Leave } from "./types";
 
 export default function LeavesPage() {
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   const { openCreate } = useLeaveSheet();
   const [search, setSearch] = useState("");
@@ -34,6 +32,7 @@ export default function LeavesPage() {
 
   const leavesQuery = useLeaves(page, pageSize, debouncedSearch, sort, canRead);
   const updateLeaveMutation = useUpdateLeave();
+  const deleteLeaveMutation = useDeleteLeave();
 
   useEffect(() => {
     let mounted = true;
@@ -66,13 +65,14 @@ export default function LeavesPage() {
     };
   }, []);
 
-  const handleApprove = async (leave: Leave) => {
+  const handleApprove = async (id: string) => {
     const session = getSession();
-    setApprovingId(leave.id);
+    const leave = leavesQuery.data?.data.find((item) => item.id === id);
+    if (!leave) return;
 
     try {
       await updateLeaveMutation.mutateAsync({
-        id: leave.id,
+        id,
         payload: {
           employee_id: leave.employee_id,
           leave_type: leave.leave_type,
@@ -88,40 +88,14 @@ export default function LeavesPage() {
     } catch {
       // Error toast is handled in useUpdateLeave hook.
     }
-    setApprovingId(null);
   };
 
-  const handleReject = async (leave: Leave) => {
-    const rejectionReason = window
-      .prompt("Masukkan alasan reject:", leave.rejection_reason ?? "")
-      ?.trim();
-
-    if (!rejectionReason) {
-      toast.error("Rejection reason is required.");
-      return;
-    }
-
-    setApprovingId(leave.id);
-
+  const handleDelete = async (id: string) => {
     try {
-      await updateLeaveMutation.mutateAsync({
-        id: leave.id,
-        payload: {
-          employee_id: leave.employee_id,
-          leave_type: leave.leave_type,
-          start_date: leave.start_date,
-          end_date: leave.end_date,
-          reason: leave.reason ?? "",
-          status: "REJECTED",
-          rejection_reason: rejectionReason,
-        },
-      });
-
-      toast.success("Leave request rejected.");
+      await deleteLeaveMutation.mutateAsync(id);
     } catch {
-      // Error toast is handled in useUpdateLeave hook.
+      // Error toast is handled in useDeleteLeave hook.
     }
-    setApprovingId(null);
   };
 
   if (permissionLoading || leavesQuery.isLoading) {
@@ -171,12 +145,11 @@ export default function LeavesPage() {
             key={`${page}-${pageSize}`}
             columns={columns({
               canApprove,
-              approvingId,
-              onApprove: (leave) => {
-                void handleApprove(leave);
+              onApprove: (id) => {
+                void handleApprove(id);
               },
-              onReject: (leave) => {
-                void handleReject(leave);
+              onDelete: (id) => {
+                void handleDelete(id);
               },
             })}
             data={leavesQuery.data?.data ?? []}

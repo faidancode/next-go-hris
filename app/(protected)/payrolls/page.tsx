@@ -28,6 +28,7 @@ export default function PayrollsPage() {
   const [canRead, setCanRead] = useState(false);
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [error, setError] = useState<string | null>(null);
+  console.log({ payrolls });
 
   useEffect(() => {
     let mounted = true;
@@ -45,7 +46,9 @@ export default function PayrollsPage() {
         setPayrolls(normalizePayrolls(response));
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load payrolls.");
+        setError(
+          err instanceof Error ? err.message : "Failed to load payrolls.",
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -68,7 +71,9 @@ export default function PayrollsPage() {
   }
 
   if (!canRead) {
-    return <ForbiddenState description="You are not allowed to read payrolls." />;
+    return (
+      <ForbiddenState description="You are not allowed to read payrolls." />
+    );
   }
 
   return (
@@ -104,7 +109,13 @@ export default function PayrollsPage() {
                 <td className="p-3">{item.period || "-"}</td>
                 <td className="p-3">{item.status || "-"}</td>
                 <td className="p-3">
-                  <Can resource="payroll" action="approve" fallback={<span className="text-muted-foreground">No access</span>}>
+                  <Can
+                    resource="payroll"
+                    action="approve"
+                    fallback={
+                      <span className="text-muted-foreground">No access</span>
+                    }
+                  >
                     <Button size="sm" variant="outline">
                       Approve
                     </Button>

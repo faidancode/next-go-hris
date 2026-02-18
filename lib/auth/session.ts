@@ -135,19 +135,43 @@ export function extractTokens(payload: unknown): {
 export function normalizeSessionUser(payload: unknown): SessionUser | null {
   if (!payload || typeof payload !== "object") return null;
 
+  const toStringId = (value: unknown): string | undefined => {
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return undefined;
+  };
+
   const root = payload as Record<string, unknown>;
-  const source =
+  const source = (
     root.user && typeof root.user === "object"
-      ? (root.user as Record<string, unknown>)
-      : root;
+      ? root.user
+      : root
+  ) as Record<string, unknown>;
+
+  const nestedCompany =
+    source.company && typeof source.company === "object"
+      ? (source.company as Record<string, unknown>)
+      : undefined;
+  const nestedEmployee =
+    source.employee && typeof source.employee === "object"
+      ? (source.employee as Record<string, unknown>)
+      : undefined;
 
   const id =
-    (typeof source.id === "string" && source.id) ||
-    (typeof source.userId === "string" && source.userId) ||
+    toStringId(source.id) ||
+    toStringId(source.user_id) ||
+    toStringId(source.userId) ||
     "";
 
-  const email = (typeof source.email === "string" && source.email) || "";
-  const name = (typeof source.name === "string" && source.name) || "";
+  const email =
+    (typeof source.email === "string" && source.email) ||
+    (typeof source.username === "string" && source.username) ||
+    "";
+  const name =
+    (typeof source.name === "string" && source.name) ||
+    (typeof source.full_name === "string" && source.full_name) ||
+    (typeof source.fullName === "string" && source.fullName) ||
+    "";
 
   if (!id || !email) return null;
 
@@ -155,14 +179,22 @@ export function normalizeSessionUser(payload: unknown): SessionUser | null {
     id,
     email,
     name: name || email,
-    company_id:
-      (typeof source.company_id === "string" && source.company_id) ||
-      (typeof source.companyId === "string" && source.companyId) ||
-      undefined,
-    employee_id:
-      (typeof source.employee_id === "string" && source.employee_id) ||
-      (typeof source.employeeId === "string" && source.employeeId) ||
-      undefined,
+    company_id: (
+      toStringId(source.company_id) ||
+      toStringId(source.companyId) ||
+      toStringId(source.companyID) ||
+      toStringId(source.company) ||
+      toStringId(nestedCompany?.id) ||
+      toStringId(nestedCompany?.company_id)
+    ),
+    employee_id: (
+      toStringId(source.employee_id) ||
+      toStringId(source.employeeId) ||
+      toStringId(source.employeeID) ||
+      toStringId(source.employee) ||
+      toStringId(nestedEmployee?.id) ||
+      toStringId(nestedEmployee?.employee_id)
+    ),
     role: (typeof source.role === "string" && source.role) || undefined,
   };
 }

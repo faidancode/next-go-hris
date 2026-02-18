@@ -1,63 +1,110 @@
 "use client";
 
-import { Can } from "@/components/guard/Can";
 import { ForbiddenState } from "@/components/guard/ForbiddenState";
+import AppHeader from "@/components/shared/app-header";
+import { DataTable } from "@/components/shared/table/data-table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient } from "@/lib/api/client";
+import { useDepartments, useDeleteDepartment } from "@/hooks/use-department";
+import { useDepartmentSheet } from "@/hooks/use-department-sheet";
 import { can } from "@/lib/rbac/can";
+import { PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-
-type Department = {
-  id: string;
-  name: string;
-};
-
-function normalizeDepartments(payload: unknown): Department[] {
-  if (Array.isArray(payload)) return payload as Department[];
-  if (payload && typeof payload === "object") {
-    const body = payload as Record<string, unknown>;
-    if (Array.isArray(body.items)) return body.items as Department[];
-  }
-  return [];
-}
+import { useDebounce } from "use-debounce";
+import { toast } from "sonner";
+import { columns } from "./columns";
+import DepartmentSheet from "./sheet";
+import type { Department } from "./types";
 
 export default function DepartmentsPage() {
-  const [loading, setLoading] = useState(true);
+  const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canUpdate, setCanUpdate] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const { openCreate, openEdit } = useDepartmentSheet();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebounce(search, 300);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sort, setSort] = useState("name:asc");
+
+  const departmentsQuery = useDepartments(
+    page,
+    pageSize,
+    debouncedSearch,
+    sort,
+    canRead,
+  );
+  const deleteDepartmentMutation = useDeleteDepartment();
 
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+    async function bootstrap() {
       try {
-        const allowed = await can("department", "read");
+        const [readAllowed, createAllowed, updateAllowed, deleteAllowed] =
+          await Promise.all([
+            can("department", "read"),
+            can("department", "create"),
+            can("department", "update"),
+            can("department", "delete"),
+          ]);
+
         if (!mounted) return;
 
-        setCanRead(allowed);
-        if (!allowed) return;
-
-        const response = await apiClient.get<unknown>("/departments");
+        setCanRead(readAllowed);
+        setCanCreate(createAllowed);
+        setCanUpdate(updateAllowed);
+        setCanDelete(deleteAllowed);
+      } catch {
         if (!mounted) return;
-        setDepartments(normalizeDepartments(response));
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load departments.");
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setPermissionLoading(false);
       }
     }
 
-    load();
+    void bootstrap();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  if (loading) {
+  const handleDelete = async (department: Department) => {
+    const confirmed = window.confirm(
+      `Delete department \"${department.name}\"?`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(department.id);
+
+    try {
+      await deleteDepartmentMutation.mutateAsync(department.id);
+    } catch {
+      // Error toast is handled in hook.
+    }
+
+    setDeletingId(null);
+  };
+
+  const handleEdit = (department: Department) => {
+    if (!canUpdate) {
+      toast.error("You are not allowed to update departments.");
+      return;
+    }
+
+    openEdit({
+      id: department.id,
+      name: department.name,
+      parent_department_id: department.parent_department_id ?? "",
+    });
+  };
+
+  if (permissionLoading || departmentsQuery.isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-8 w-52" />
@@ -67,37 +114,65 @@ export default function DepartmentsPage() {
   }
 
   if (!canRead) {
-    return <ForbiddenState description="You are not allowed to read departments." />;
+    return (
+      <ForbiddenState description="You are not allowed to read departments." />
+    );
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Departments</h1>
-        <Can
-          resource="department"
-          action="create"
-          fallback={null}
-          loadingFallback={<Skeleton className="h-9 w-28" />}
-        >
-          <Button type="button">Create Department</Button>
-        </Can>
-      </div>
+    <>
+      <AppHeader title="Departments" />
 
-      {error && <ForbiddenState title="Request error" description={error} />}
+      <div className="container pt-2">
+        <div className="flex items-center justify-between mb-4 mt-6 gap-2">
+          <Input
+            type="text"
+            placeholder="Search department..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            className="bg-white p-2 border rounded-lg w-64"
+          />
 
-      <div className="rounded-lg border bg-white">
-        <ul className="divide-y">
-          {departments.length === 0 && (
-            <li className="p-4 text-sm text-muted-foreground">No departments available.</li>
+          {canCreate && (
+            <Button onClick={openCreate}>
+              <PlusCircle className="size-4" /> Create Department
+            </Button>
           )}
-          {departments.map((item) => (
-            <li key={item.id} className="p-4 text-sm">
-              {item.name}
-            </li>
-          ))}
-        </ul>
+        </div>
+
+        {departmentsQuery.error ? (
+          <ForbiddenState
+            title="Request error"
+            description={departmentsQuery.error.message}
+          />
+        ) : (
+          <DataTable
+            key={`${page}-${pageSize}`}
+            columns={columns({
+              canUpdate,
+              canDelete,
+              deletingId,
+              onEdit: handleEdit,
+              onDelete: (department) => {
+                void handleDelete(department);
+              },
+            })}
+            data={departmentsQuery.data?.data ?? []}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            totalPages={departmentsQuery.data?.meta.totalPages ?? 1}
+            sort={sort}
+            setSort={setSort}
+          />
+        )}
       </div>
-    </section>
+
+      <DepartmentSheet />
+    </>
   );
 }

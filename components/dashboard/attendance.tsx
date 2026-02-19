@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthStore } from "@/app/stores/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +23,9 @@ function getTodayDateKey() {
 }
 
 export default function DashboardAttendance() {
+  const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const employeeId = user?.employee_id;
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canReadAttendance, setCanReadAttendance] = useState(false);
   const [canCreateAttendance, setCanCreateAttendance] = useState(false);
@@ -31,7 +35,8 @@ export default function DashboardAttendance() {
     50,
     "",
     "attendance_date:desc",
-    canReadAttendance,
+    employeeId,
+    hasHydrated && canReadAttendance && Boolean(employeeId),
   );
   const clockInMutation = useClockInAttendance();
   const clockOutMutation = useClockOutAttendance();
@@ -100,7 +105,7 @@ export default function DashboardAttendance() {
     }
   };
 
-  if (!canReadAttendance) return null;
+  if (!canReadAttendance || !employeeId) return null;
 
   if (permissionLoading || attendancesQuery.isLoading) {
     return (

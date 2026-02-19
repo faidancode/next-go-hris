@@ -14,11 +14,12 @@ export const useAttendances = (
   pageSize: number,
   search: string,
   sort: string,
+  employeeId?: string,
   enabled = true,
 ) => {
   return useQuery({
-    queryKey: ["attendances", page, pageSize, search, sort],
-    queryFn: () => getAttendances(page, pageSize, search, sort),
+    queryKey: ["attendances", page, pageSize, search, sort, employeeId],
+    queryFn: () => getAttendances(page, pageSize, search, sort, employeeId),
     staleTime: 30_000,
     enabled,
   });
@@ -57,4 +58,3 @@ export const useClockOutAttendance = () => {
     },
   });
 };
-

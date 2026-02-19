@@ -4,6 +4,7 @@ export type Attendance = {
   id: string;
   company_id: string;
   employee_id: string;
+  employee_name: string;
   attendance_date: string;
   clock_in: string;
   clock_out?: string | null;
@@ -14,4 +15,3 @@ export type Attendance = {
   external_ref?: string | null;
   notes?: string | null;
 };
-

@@ -54,13 +54,17 @@ export async function getAttendances(
   pageSize: number,
   search: string,
   sort: string,
+  employeeId?: string,
 ): Promise<AttendanceListResponse> {
   const response = await apiClient.get<unknown>("/attendances");
   const attendances = normalizeAttendances(response);
+  const scopedAttendances = employeeId
+    ? attendances.filter((item) => item.employee_id === employeeId)
+    : attendances;
 
   const keyword = search.trim().toLowerCase();
   const filtered = keyword
-    ? attendances.filter((item) => {
+    ? scopedAttendances.filter((item) => {
         const haystack = [
           item.attendance_date,
           item.status,
@@ -74,7 +78,7 @@ export async function getAttendances(
           .toLowerCase();
         return haystack.includes(keyword);
       })
-    : attendances;
+    : scopedAttendances;
 
   const [sortField, sortDirection] = sort.split(":");
   const desc = sortDirection === "desc";
@@ -110,4 +114,3 @@ export async function clockInAttendance(payload: ClockInPayload) {
 export async function clockOutAttendance(payload: ClockOutPayload) {
   return apiClient.post("/attendances/clock-out", payload);
 }
-

@@ -100,8 +100,9 @@ export async function getEmployees(
           item.phone,
           item.hire_date,
           item.employment_status,
+          item.department,
           item.department_id,
-          item.position_name,
+          item.position,
           item.position_id,
         ]
           .filter(Boolean)

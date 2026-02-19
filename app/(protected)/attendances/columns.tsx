@@ -8,6 +8,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 export const columns: ColumnDef<Attendance>[] = [
   {
+    accessorKey: "employee_name",
+    header: "Employee",
+    enableSorting: true,
+  },
+  {
     accessorKey: "attendance_date",
     header: "Date",
     enableSorting: true,

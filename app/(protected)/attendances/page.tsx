@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthStore } from "@/app/stores/auth";
 import { ForbiddenState } from "@/components/guard/ForbiddenState";
 import AppHeader from "@/components/shared/app-header";
 import { DataTable } from "@/components/shared/table/data-table";
@@ -25,6 +26,11 @@ function getTodayDateKey() {
 }
 
 export default function AttendancesPage() {
+  const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const role = user?.role?.toLowerCase();
+  const isEmployeeRole = role === "employee";
+  const employeeId = user?.employee_id;
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
@@ -39,7 +45,8 @@ export default function AttendancesPage() {
     pageSize,
     debouncedSearch,
     sort,
-    canRead,
+    isEmployeeRole ? employeeId : undefined,
+    hasHydrated && canRead && (!isEmployeeRole || Boolean(employeeId)),
   );
   const clockInMutation = useClockInAttendance();
   const clockOutMutation = useClockOutAttendance();
@@ -115,6 +122,15 @@ export default function AttendancesPage() {
     return <ForbiddenState description="You are not allowed to read attendance." />;
   }
 
+  if (isEmployeeRole && !employeeId) {
+    return (
+      <ForbiddenState
+        title="Employee not found"
+        description="Your account is not linked to an employee profile."
+      />
+    );
+  }
+
   return (
     <>
       <AppHeader title="Attendance" />
@@ -184,4 +200,3 @@ export default function AttendancesPage() {
     </>
   );
 }
-

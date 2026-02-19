@@ -44,6 +44,92 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
+function normalizeRoleValue(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+function extractRoleFromObject(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
+
+  return (
+    normalizeRoleValue(source.role) ||
+    normalizeRoleValue(source.name) ||
+    normalizeRoleValue(source.code) ||
+    normalizeRoleValue(source.slug) ||
+    normalizeRoleValue(source.key) ||
+    normalizeRoleValue(source.label) ||
+    normalizeRoleValue(source.value)
+  );
+}
+
+function pickMostPrivilegedRole(roles: string[]): string | undefined {
+  if (!roles.length) return undefined;
+
+  const priority = [
+    "superadmin",
+    "admin",
+    "hr",
+    "manager",
+    "lead",
+    "supervisor",
+    "employee",
+  ];
+
+  const unique = Array.from(new Set(roles));
+  const best = unique.sort((a, b) => {
+    const ia = priority.indexOf(a);
+    const ib = priority.indexOf(b);
+    const pa = ia === -1 ? Number.MAX_SAFE_INTEGER : ia;
+    const pb = ib === -1 ? Number.MAX_SAFE_INTEGER : ib;
+    return pa - pb;
+  })[0];
+
+  return best;
+}
+
+function resolveRole(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+
+  const root = payload as Record<string, unknown>;
+  const source = (
+    root.user && typeof root.user === "object"
+      ? root.user
+      : root
+  ) as Record<string, unknown>;
+  const nestedEmployee =
+    source.employee && typeof source.employee === "object"
+      ? (source.employee as Record<string, unknown>)
+      : undefined;
+
+  const collected: string[] = [];
+  const collect = (candidate: unknown) => {
+    const role = normalizeRoleValue(candidate) || extractRoleFromObject(candidate);
+    if (role) collected.push(role);
+  };
+
+  collect(root.role);
+  collect(source.role);
+  collect(nestedEmployee?.role);
+  collect(root.role_name);
+  collect(root.roleName);
+  collect(source.role_name);
+  collect(source.roleName);
+
+  const collectRoleArray = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    for (const item of value) collect(item);
+  };
+
+  collectRoleArray(root.roles);
+  collectRoleArray(source.roles);
+  collectRoleArray(nestedEmployee?.roles);
+
+  return pickMostPrivilegedRole(collected);
+}
+
 export function getSession(): AuthSession | null {
   if (!isBrowser()) return null;
   return safeParse<AuthSession>(localStorage.getItem(SESSION_STORAGE_KEY));
@@ -195,6 +281,6 @@ export function normalizeSessionUser(payload: unknown): SessionUser | null {
       toStringId(nestedEmployee?.id) ||
       toStringId(nestedEmployee?.employee_id)
     ),
-    role: (typeof source.role === "string" && source.role) || undefined,
+    role: resolveRole(payload),
   };
 }

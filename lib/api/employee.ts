@@ -41,6 +41,31 @@ function normalizeEmployees(payload: unknown): Employee[] {
   return [];
 }
 
+function normalizeEmployee(payload: unknown): Employee | null {
+  if (payload && typeof payload === "object") {
+    const body = payload as Record<string, unknown>;
+    if ("id" in body && typeof body.id === "string") {
+      return body as Employee;
+    }
+
+    if (body.data && typeof body.data === "object") {
+      const data = body.data as Record<string, unknown>;
+      if ("id" in data && typeof data.id === "string") {
+        return data as Employee;
+      }
+    }
+
+    if (body.item && typeof body.item === "object") {
+      const item = body.item as Record<string, unknown>;
+      if ("id" in item && typeof item.id === "string") {
+        return item as Employee;
+      }
+    }
+  }
+
+  return null;
+}
+
 function compareValues(a: unknown, b: unknown, desc: boolean) {
   if (a === b) return 0;
 
@@ -115,6 +140,17 @@ export async function getEmployees(
 
 export async function createEmployee(payload: CreateEmployeePayload) {
   return apiClient.post("/employees", payload);
+}
+
+export async function getEmployeeById(id: string): Promise<Employee> {
+  const response = await apiClient.get<unknown>(`/employees/${id}`);
+  const employee = normalizeEmployee(response);
+
+  if (!employee) {
+    throw new Error("Invalid employee detail response.");
+  }
+
+  return employee;
 }
 
 export async function updateEmployee(

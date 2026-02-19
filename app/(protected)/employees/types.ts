@@ -1,5 +1,8 @@
 "use client";
 
+import { Department } from "../departments/types";
+import { Position } from "../positions/types";
+
 export type Employee = {
   id: string;
   employee_number?: string;
@@ -11,7 +14,8 @@ export type Employee = {
   employment_status?: string;
   department_id?: string;
   position_id?: string;
-  position_name?: string;
+  position?: Position;
+  department?: Department;
   created_at?: string;
   updated_at?: string;
 };

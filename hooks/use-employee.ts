@@ -1,6 +1,7 @@
 import {
   createEmployee,
   deleteEmployee,
+  getEmployeeById,
   getEmployees,
   updateEmployee,
   type CreateEmployeePayload,
@@ -22,6 +23,15 @@ export const useEmployees = (
     queryFn: () => getEmployees(page, pageSize, search, sort),
     staleTime: 60_000,
     enabled,
+  });
+};
+
+export const useEmployeeById = (id: string, enabled = true) => {
+  return useQuery({
+    queryKey: ["employees", "detail", id],
+    queryFn: () => getEmployeeById(id),
+    staleTime: 60_000,
+    enabled: enabled && Boolean(id),
   });
 };
 
@@ -54,8 +64,11 @@ export const useUpdateEmployee = () => {
       id: string;
       payload: UpdateEmployeePayload;
     }) => updateEmployee(id, payload),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({
+        queryKey: ["employees", "detail", variables.id],
+      });
       toast.success("Employee updated successfully.");
     },
     onError: (error) => {

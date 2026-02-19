@@ -3,25 +3,21 @@
 import { useAuthStore } from "@/app/stores/auth";
 import { ForbiddenState } from "@/components/guard/ForbiddenState";
 import AppHeader from "@/components/shared/app-header";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEmployees } from "@/hooks/use-employee";
+import { useEmployeeById } from "@/hooks/use-employee";
 import { can } from "@/lib/rbac/can";
 import { formatDateID } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function EmployeeMePage() {
   const user = useAuthStore((state) => state.user);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canRead, setCanRead] = useState(false);
+  const employeeId = user?.employee_id ?? "";
 
-  const employeesQuery = useEmployees(
-    1,
-    100,
-    user?.email ?? "",
-    "full_name:asc",
-    hasHydrated && canRead,
-  );
+  const employeeQuery = useEmployeeById(employeeId, hasHydrated && canRead);
 
   useEffect(() => {
     let mounted = true;
@@ -44,17 +40,7 @@ export default function EmployeeMePage() {
     };
   }, []);
 
-  const selfEmployee = useMemo(() => {
-    const records = employeesQuery.data?.data ?? [];
-    if (!records.length) return undefined;
-
-    return (
-      records.find((item) => item.id === user?.employee_id) ||
-      records.find((item) => item.email === user?.email)
-    );
-  }, [employeesQuery.data?.data, user?.email, user?.employee_id]);
-
-  if (!hasHydrated || permissionLoading || employeesQuery.isLoading) {
+  if (!hasHydrated || permissionLoading || employeeQuery.isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-8 w-52" />
@@ -64,19 +50,30 @@ export default function EmployeeMePage() {
   }
 
   if (!canRead) {
-    return <ForbiddenState description="You are not allowed to read employee profile." />;
+    return (
+      <ForbiddenState description="You are not allowed to read employee profile." />
+    );
   }
 
-  if (employeesQuery.error) {
+  if (!employeeId) {
     return (
       <ForbiddenState
-        title="Request error"
-        description={employeesQuery.error.message}
+        title="Employee not found"
+        description="Your account is not linked to an employee profile."
       />
     );
   }
 
-  if (!selfEmployee) {
+  if (employeeQuery.error) {
+    return (
+      <ForbiddenState
+        title="Request error"
+        description={employeeQuery.error.message}
+      />
+    );
+  }
+
+  if (!employeeQuery.data) {
     return (
       <ForbiddenState
         title="Employee not found"
@@ -92,31 +89,53 @@ export default function EmployeeMePage() {
         <div className="rounded-lg border bg-white p-5 space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">Full Name</p>
-            <p className="font-medium">{selfEmployee.full_name || "-"}</p>
+            <p className="font-medium">{employeeQuery.data.full_name || "-"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Email</p>
-            <p className="font-medium">{selfEmployee.email || "-"}</p>
+            <p className="font-medium">{employeeQuery.data.email || "-"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Employee Number</p>
-            <p className="font-medium">{selfEmployee.employee_number || "-"}</p>
+            <p className="font-medium">
+              {employeeQuery.data.employee_number || "-"}
+            </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Phone</p>
-            <p className="font-medium">{selfEmployee.phone || "-"}</p>
+            <p className="font-medium">{employeeQuery.data.phone || "-"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Hire Date</p>
-            <p className="font-medium">{formatDateID(selfEmployee.hire_date)}</p>
+            <p className="font-medium">
+              {formatDateID(employeeQuery.data.hire_date)}
+            </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Employment Status</p>
-            <p className="font-medium">{selfEmployee.employment_status || "-"}</p>
+            <Badge
+              className={
+                employeeQuery.data.employment_status === "active"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-700"
+              }
+            >
+              <p className="capitalize font-medium">
+                {employeeQuery.data.employment_status || "-"}
+              </p>
+            </Badge>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Position</p>
-            <p className="font-medium">{selfEmployee.position_name || "-"}</p>
+            <p className="font-medium">
+              {employeeQuery.data.position?.name || "-"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Department</p>
+            <p className="font-medium">
+              {employeeQuery.data.department?.name || "-"}
+            </p>
           </div>
         </div>
       </div>

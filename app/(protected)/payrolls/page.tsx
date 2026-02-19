@@ -1,67 +1,85 @@
 "use client";
 
-import { Can } from "@/components/guard/Can";
 import { ForbiddenState } from "@/components/guard/ForbiddenState";
+import AppHeader from "@/components/shared/app-header";
+import { DataTable } from "@/components/shared/table/data-table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient } from "@/lib/api/client";
 import { can } from "@/lib/rbac/can";
+import { PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-
-type Payroll = {
-  id: string;
-  period?: string;
-  status?: string;
-};
-
-function normalizePayrolls(payload: unknown): Payroll[] {
-  if (Array.isArray(payload)) return payload as Payroll[];
-  if (payload && typeof payload === "object") {
-    const body = payload as Record<string, unknown>;
-    if (Array.isArray(body.items)) return body.items as Payroll[];
-  }
-  return [];
-}
+import { useDebounce } from "use-debounce";
+import { columns } from "./columns";
+import PayrollSheet from "./sheet";
+import { usePayrolls, useApprovePayroll, useMarkPaidPayroll, useDeletePayroll } from "@/hooks/use-payroll";
+import { usePayrollSheet } from "@/hooks/use-payroll-sheet";
+import { downloadPayslip } from "@/lib/api/payroll";
 
 export default function PayrollsPage() {
-  const [loading, setLoading] = useState(true);
-  const [canRead, setCanRead] = useState(false);
-  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  console.log({ payrolls });
+  const [permissionLoading, setPermissionLoading] = useState(true);
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canCreate: false,
+    canApprove: false,
+    canPay: false,
+    canDelete: false,
+  });
+
+  const { openCreate, openView } = usePayrollSheet();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebounce(search, 300);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sort, setSort] = useState("period_start:desc");
+
+  const payrollsQuery = usePayrolls(
+    page,
+    pageSize,
+    debouncedSearch,
+    sort,
+    {},
+    permissions.canRead
+  );
+
+  const approveMutation = useApprovePayroll();
+  const payMutation = useMarkPaidPayroll();
+  const deleteMutation = useDeletePayroll();
 
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+    async function bootstrap() {
       try {
-        const allowed = await can("payroll", "read");
+        const [read, create, approve, pay, del] = await Promise.all([
+          can("payroll", "read"),
+          can("payroll", "create"),
+          can("payroll", "approve"),
+          can("payroll", "pay"),
+          can("payroll", "delete"),
+        ]);
+
         if (!mounted) return;
 
-        setCanRead(allowed);
-        if (!allowed) return;
-
-        const response = await apiClient.get<unknown>("/payrolls");
-        if (!mounted) return;
-        setPayrolls(normalizePayrolls(response));
-      } catch (err) {
-        if (!mounted) return;
-        setError(
-          err instanceof Error ? err.message : "Failed to load payrolls.",
-        );
+        setPermissions({
+          canRead: read,
+          canCreate: create,
+          canApprove: approve,
+          canPay: pay,
+          canDelete: del,
+        });
+      } catch {
+        // Handle error if needed
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setPermissionLoading(false);
       }
     }
 
-    load();
-
-    return () => {
-      mounted = false;
-    };
+    void bootstrap();
+    return () => { mounted = false; };
   }, []);
 
-  if (loading) {
+  if (permissionLoading || payrollsQuery.isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-8 w-52" />
@@ -70,62 +88,62 @@ export default function PayrollsPage() {
     );
   }
 
-  if (!canRead) {
-    return (
-      <ForbiddenState description="You are not allowed to read payrolls." />
-    );
+  if (!permissions.canRead) {
+    return <ForbiddenState description="You are not allowed to read payrolls." />;
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Payrolls</h1>
-        <Can resource="payroll" action="create" fallback={null}>
-          <Button type="button">Create Payroll</Button>
-        </Can>
+    <>
+      <AppHeader title="Payrolls" />
+
+      <div className="container pt-2">
+        <div className="flex items-center justify-between mb-4 mt-6 gap-2">
+          <Input
+            type="text"
+            placeholder="Search payroll..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="bg-white p-2 border rounded-lg w-64"
+          />
+
+          {permissions.canCreate && (
+            <Button onClick={openCreate}>
+              <PlusCircle className="size-4 mr-2" /> Create Payroll
+            </Button>
+          )}
+        </div>
+
+        {payrollsQuery.error ? (
+          <ForbiddenState title="Request error" description={payrollsQuery.error.message} />
+        ) : (
+          <DataTable
+            columns={columns({
+              canApprove: permissions.canApprove,
+              canPay: permissions.canPay,
+              canDelete: permissions.canDelete,
+              onView: openView,
+              onApprove: (id) => approveMutation.mutate(id),
+              onMarkPaid: (id) => payMutation.mutate(id),
+              onDelete: (id) => deleteMutation.mutate(id),
+              onDownload: (id) => void downloadPayslip(id),
+            })}
+            data={payrollsQuery.data?.data ?? []}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            totalPages={payrollsQuery.data?.meta.totalPages ?? 1}
+            sort={sort}
+            setSort={setSort}
+          />
+        )}
       </div>
 
-      {error && <ForbiddenState title="Request error" description={error} />}
-
-      <div className="overflow-hidden rounded-lg border bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left">
-            <tr>
-              <th className="p-3">Period</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payrolls.length === 0 && (
-              <tr>
-                <td colSpan={3} className="p-4 text-muted-foreground">
-                  No payroll records.
-                </td>
-              </tr>
-            )}
-            {payrolls.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-3">{item.period || "-"}</td>
-                <td className="p-3">{item.status || "-"}</td>
-                <td className="p-3">
-                  <Can
-                    resource="payroll"
-                    action="approve"
-                    fallback={
-                      <span className="text-muted-foreground">No access</span>
-                    }
-                  >
-                    <Button size="sm" variant="outline">
-                      Approve
-                    </Button>
-                  </Can>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <PayrollSheet />
+    </>
   );
 }
+

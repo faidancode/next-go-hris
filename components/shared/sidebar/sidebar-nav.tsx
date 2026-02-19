@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthStore } from "@/app/stores/auth";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -13,11 +14,12 @@ import {
   BriefcaseBusiness,
   Building2,
   ChartArea,
+  HandCoins,
   Plane,
   ReceiptText,
   Users,
 } from "lucide-react";
-import { can } from "@/lib/rbac/can";
+import { can, clearRbacCache } from "@/lib/rbac/can";
 
 const SIDEBAR_ITEMS = [
   { title: "Dashboard", url: "/dashboard", icon: ChartArea },
@@ -57,6 +59,13 @@ const SIDEBAR_ITEMS = [
     action: "read",
   },
   {
+    title: "Employee Salaries",
+    url: "/employee-salaries",
+    icon: HandCoins,
+    resource: "salary",
+    action: "read",
+  },
+  {
     title: "Payrolls",
     url: "/payrolls",
     icon: ReceiptText,
@@ -67,12 +76,17 @@ const SIDEBAR_ITEMS = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const [visibleItems, setVisibleItems] = useState(
     SIDEBAR_ITEMS.filter((item) => !item.resource || !item.action),
   );
 
   useEffect(() => {
+    if (!hasHydrated || !user) return;
+
     let mounted = true;
+    clearRbacCache();
 
     async function resolveMenuAccess() {
       const checks = await Promise.all(
@@ -94,12 +108,12 @@ export function SidebarNav() {
       );
     }
 
-    resolveMenuAccess();
+    void resolveMenuAccess();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [hasHydrated, pathname, user?.id, user?.employee_id, user?.company_id]);
 
   const isActive = (url: string) =>
     pathname === url || (pathname.startsWith(url) && url !== "/");

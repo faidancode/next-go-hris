@@ -90,6 +90,12 @@ export async function can(
   });
 
   const allowed = Boolean(response?.allowed);
+  console.log("rbac result", {
+    resource,
+    action,
+    allowed,
+    response,
+  });
   rbacCache.set(key, { value: allowed, expiresAt: now + CACHE_TTL_MS });
   return allowed;
 }

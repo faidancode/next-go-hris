@@ -117,3 +117,17 @@ const formatTimeRaw = (date: Date): string => {
     .format(date)
     .replace(/\./g, ":"); // Intl ID terkadang menggunakan titik (08.00)
 };
+
+export function getTodayDateKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function formatSalaryInput(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}

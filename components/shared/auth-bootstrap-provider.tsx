@@ -30,16 +30,29 @@ export default function AuthBootstrapProvider({ children }: Props) {
   const hasBootstrapped = useRef(false);
 
   useEffect(() => {
-    if (!hasHydrated || isValidating || isSessionExpired || hasBootstrapped.current) {
+    // 1. Cek kondisi dasar: Jangan jalan kalau belum rehidrasi, sedang validasi,
+    // atau sudah pernah bootstrap sekali.
+    if (!hasHydrated || isValidating || hasBootstrapped.current) {
       return;
     }
 
-    if (user) {
-      return;
-    }
-
+    // 2. Ambil session dari storage
     const session = getSession();
 
+    // 3. JIKA GUEST (Tidak ada token): Tandai bootstrap selesai tanpa error.
+    // Ini kunci agar landing page tidak menganggap user "expired".
+    if (!session?.accessToken) {
+      hasBootstrapped.current = true;
+      return;
+    }
+
+    // 4. Jika user sudah ada di state (Zustand), tandai sudah bootstrap.
+    if (user) {
+      hasBootstrapped.current = true;
+      return;
+    }
+
+    // 5. Jika ada token tapi belum ada data user di state, baru panggil API
     hasBootstrapped.current = true;
     setValidating(true);
 
@@ -68,9 +81,12 @@ export default function AuthBootstrapProvider({ children }: Props) {
         });
       })
       .catch((error) => {
+        // Jika error 401, artinya token lama/tidak valid
         if (error instanceof UnauthorizedError) {
           clearSession();
-          markSessionExpired();
+          // Hanya panggil markSessionExpired jika memang perlu memunculkan alert/modal login.
+          // Untuk bootstrap awal, logout() biasanya sudah cukup aman.
+          logout();
           return;
         }
 
@@ -90,6 +106,8 @@ export default function AuthBootstrapProvider({ children }: Props) {
     markSessionExpired,
     setValidating,
   ]);
+
+  console.log("Bootstrap:", { user, isSessionExpired });
 
   return <>{children}</>;
 }

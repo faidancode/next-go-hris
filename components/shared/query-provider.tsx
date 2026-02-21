@@ -1,28 +1,18 @@
+// components/shared/query-provider.tsx
 "use client";
 
+import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ApiError } from "@/lib/api/fetcher";
 import { useAuthStore } from "@/app/stores/auth";
 import { clearSession } from "@/lib/auth/session";
-
-function isSessionExpiredError(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    typeof error.body === "object" &&
-    error.body !== null &&
-    (error.body as any).shouldLogout === true
-  );
-}
+import { ApiError } from "@/lib/api/fetcher";
 
 export default function QueryProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
   const {
     logout,
     isSessionExpired,
@@ -59,7 +49,7 @@ export default function QueryProvider({
     if (isLoggingOut) return;
 
     setLoggingOut(true);
-    markSessionExpired();
+    markSessionExpired(); // Ini akan set user: null & isSessionExpired: true
 
     try {
       await fetch("/api/v1/auth/logout", { method: "POST" });
@@ -68,7 +58,8 @@ export default function QueryProvider({
     } finally {
       clearSession();
       logout();
-      router.replace("/login");
+      // HAPUS BARIS INI: router.replace("/login");
+      // Biarkan ProtectedLayout yang melakukan redirect jika user mengakses halaman dashboard
       setLoggingOut(false);
     }
   };
@@ -78,6 +69,11 @@ export default function QueryProvider({
       if (event.type !== "updated") return;
 
       const error = event.query.state.error;
+
+      // Fungsi helper untuk cek status 401
+      const isSessionExpiredError = (err: any) => {
+        return err instanceof ApiError && err.status === 401;
+      };
 
       if (error && isSessionExpiredError(error) && !isSessionExpired) {
         handleSessionExpired();

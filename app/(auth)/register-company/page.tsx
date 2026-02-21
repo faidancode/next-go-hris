@@ -19,10 +19,6 @@ export default function RegisterCompanyPage() {
             </div>
 
             <div className="w-full flex flex-col items-center">
-                {/* Branding */}
-                <div className="mb-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <Logo size="lg" />
-                </div>
 
                 {/* Main Content */}
                 <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">

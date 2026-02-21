@@ -1,13 +1,12 @@
+// app/(dashboard)/layout.tsx
 "use client";
 
-import { AppSidebar } from "@/components/shared/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { useAuthStore } from "@/app/stores/auth";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/app/stores/auth";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/shared/app-sidebar";
 import { Toaster } from "sonner";
-import { Logo } from "@/components/shared/logo";
-import { LogoLoading } from "@/components/shared/logo-loading";
 
 export default function ProtectedLayout({
   children,
@@ -18,24 +17,30 @@ export default function ProtectedLayout({
   const router = useRouter();
 
   useEffect(() => {
+    // 1. Tunggu sampai store terisi (hydrated) dan API /auth/me selesai
     if (!hasHydrated || isValidating) return;
 
+    // 2. Jika tidak ada user (Guest) atau session mati, BARU redirect ke login
     if (!user || isSessionExpired) {
       router.replace("/login");
     }
   }, [hasHydrated, isValidating, isSessionExpired, router, user]);
 
+  // Tampilkan loading saat proses bootstrap berlangsung
   if (!hasHydrated || isValidating) {
-    return <LogoLoading />;
-  }
-
-  if (!user) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
-        Redirecting to login...
+      <div className="flex h-screen items-center justify-center">
+        {/* Ganti dengan komponen LogoLoading Anda */}
+        <p className="text-sm animate-pulse">Memuat Sesi...</p>
       </div>
     );
   }
+
+  // Jika tidak ada user, jangan render apa-apa (akan diredirect oleh useEffect)
+  if (!user) {
+    return null;
+  }
+  console.log("ProtectedLayout mounted");
 
   return (
     <SidebarProvider>

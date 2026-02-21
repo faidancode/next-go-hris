@@ -82,7 +82,7 @@ export async function can(
     action,
   });
 
-  const response = await apiClient.post<{ allowed: boolean }>("/rbac/enforce", {
+  const response = await apiClient.post<{ allowed: boolean }>("rbac/enforce", {
     employee_id: session.user.employee_id,
     company_id: session.user.company_id,
     resource,

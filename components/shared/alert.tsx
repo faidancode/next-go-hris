@@ -12,10 +12,10 @@ interface AlertProps {
 }
 
 const VARIANT_STYLES: Record<AlertVariant, string> = {
-  error: "border-red-800 bg-red-200 text-red-800",
-  warning: "border-orange-800 bg-orange-200 text-orange-800",
-  info: "border-blue-800 bg-blue-200 text-blue-800",
-  success: "border-green-800 bg-green-200 text-green-800",
+  error: "border-red-800 bg-red-100 border border-red-200 text-red-800",
+  warning: "border-orange-800 bg-orange-100 border border-orange-200 text-orange-800",
+  info: "border-blue-800 bg-blue-100 border border-blue-200 text-blue-800",
+  success: "border-green-800 bg-green-100 border border-green-200 text-green-800",
 };
 
 const VARIANT_ICONS: Record<AlertVariant, React.ElementType> = {
@@ -36,7 +36,7 @@ export function Alert({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 border-l-4 px-3 py-2 text-sm",
+        "flex items-center gap-2 px-3 py-2 text-sm rounded-md",
         VARIANT_STYLES[variant],
         className
       )}

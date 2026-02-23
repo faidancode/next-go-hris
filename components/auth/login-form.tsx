@@ -21,12 +21,14 @@ import {
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
+  BadgeCheck,
   Eye,
   EyeOff,
   Fingerprint,
   Loader2,
   Lock,
   Mail,
+  Shield,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
@@ -35,6 +37,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Label } from "../ui/label";
 import { Logo } from "../shared/logo";
+import { Alert } from "../shared/alert";
 
 type LoginFormProps = React.ComponentProps<"div"> & {
   onLoginSuccess?: () => void;
@@ -163,15 +166,13 @@ export function LoginForm({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Success Notification after Register */}
           {isJustRegistered && !loginError && (
-            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-500 animate-in zoom-in-95 duration-300">
-              <Logo />
+            <Alert variant="success" showIcon>
               <p className="font-medium">
-                Registration complete! You can now sign in with your new
+                Registration complete! You can now sign in with your new //
                 account.
               </p>
-            </div>
+            </Alert>
           )}
 
           {loginError && (

@@ -86,7 +86,7 @@ export function RegisterCompanyForm() {
   return (
     <div className="w-full max-w-2xl mx-auto py-8 px-4">
       <Card className="border-border/40 shadow-2xl overflow-hidden backdrop-blur-sm bg-card/95">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-primary via-amber-400 to-amber-600" />
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-secondary via-amber-400 to-amber-600" />
         <div className="flex justify-center mb-4">
           <div className="relative group">
             <Logo />

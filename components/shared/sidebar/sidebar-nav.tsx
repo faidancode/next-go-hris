@@ -18,6 +18,7 @@ import {
   Plane,
   ReceiptText,
   Users,
+  ShieldUser,
 } from "lucide-react";
 import { can, clearRbacCache } from "@/lib/rbac/can";
 
@@ -70,6 +71,13 @@ const SIDEBAR_ITEMS = [
     url: "/payrolls",
     icon: ReceiptText,
     resource: "payroll",
+    action: "read",
+  },
+  {
+    title: "Users",
+    url: "/users",
+    icon: ShieldUser,
+    resource: "user",
     action: "read",
   },
 ];

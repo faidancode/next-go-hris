@@ -19,6 +19,7 @@ import {
   ReceiptText,
   Users,
   ShieldUser,
+  Settings,
 } from "lucide-react";
 import { can, clearRbacCache } from "@/lib/rbac/can";
 
@@ -80,6 +81,13 @@ const SIDEBAR_ITEMS = [
     resource: "user",
     action: "read",
   },
+  {
+    title: "Role Permission",
+    url: "/settings/user-role-permission",
+    icon: Settings,
+    resource: "role",
+    action: "read",
+  },
 ];
 
 export function SidebarNav() {
@@ -91,7 +99,7 @@ export function SidebarNav() {
   );
 
   useEffect(() => {
-    if (!hasHydrated || !user) return;
+    if (!hasHydrated || !user?.id) return;
 
     let mounted = true;
     clearRbacCache();

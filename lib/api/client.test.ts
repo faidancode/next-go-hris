@@ -28,4 +28,14 @@ describe("api client error mapping", () => {
     expect(error).toBeInstanceOf(ValidationError);
     expect((error as ValidationError).fieldErrors?.email?.[0]).toBe("required");
   });
+
+  it("normalizes RBAC endpoint to api v1", () => {
+    const url = __internal.normalizePath("/rbac/permissions");
+    expect(url).toBe("/api/v1/rbac/permissions");
+  });
+
+  it("keeps explicit /api path untouched", () => {
+    const url = __internal.normalizePath("/api/rbac/permissions");
+    expect(url).toBe("/api/rbac/permissions");
+  });
 });

@@ -11,11 +11,7 @@ function buildUpstreamUrl(path: string[], search: string) {
   let normalizedPath = path;
   if (path[0] === "v1") {
     normalizedPath = ["api", ...path];
-  } else if (
-    path.length > 0 &&
-    path[0] !== "api" &&
-    path[0] !== "rbac"
-  ) {
+  } else if (path.length > 0 && path[0] !== "api") {
     normalizedPath = ["api", "v1", ...path];
   }
 

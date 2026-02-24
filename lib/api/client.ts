@@ -70,7 +70,6 @@ const AUTH_BYPASS_PATHS = new Set([
 function normalizePath(path: string): string {
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   if (path.startsWith("/api/")) return path;
-  if (path.startsWith("/rbac/")) return `/api${path}`;
   if (path.startsWith("/")) return `/api/v1${path}`;
   return `/api/v1/${path}`;
 }

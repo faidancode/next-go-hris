@@ -11,6 +11,12 @@ export type EmployeeListResponse = {
   };
 };
 
+export type EmployeeOption = {
+  id: string;
+  full_name: string;
+  email: string;
+};
+
 export type CreateEmployeePayload = {
   full_name: string;
   email: string;
@@ -64,6 +70,46 @@ function normalizeEmployee(payload: unknown): Employee | null {
   }
 
   return null;
+}
+
+function normalizeEmployeeOptions(payload: unknown): EmployeeOption[] {
+  let rawOptions: unknown[] = [];
+
+  if (Array.isArray(payload)) {
+    rawOptions = payload;
+  } else if (payload && typeof payload === "object") {
+    const body = payload as Record<string, unknown>;
+    if (Array.isArray(body.data)) rawOptions = body.data;
+    else if (Array.isArray(body.items)) rawOptions = body.items;
+  }
+
+  return rawOptions
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const raw = item as Record<string, unknown>;
+
+      const id =
+        typeof raw.id === "string"
+          ? raw.id
+          : typeof raw.employee_id === "string"
+            ? raw.employee_id
+            : typeof raw.value === "string"
+              ? raw.value
+              : "";
+
+      const full_name =
+        typeof raw.full_name === "string"
+          ? raw.full_name
+          : typeof raw.name === "string"
+            ? raw.name
+            : "";
+
+      const email = typeof raw.email === "string" ? raw.email : "";
+
+      if (!id || !full_name) return null;
+      return { id, full_name, email };
+    })
+    .filter((option): option is EmployeeOption => option !== null);
 }
 
 function compareValues(a: unknown, b: unknown, desc: boolean) {
@@ -141,6 +187,11 @@ export async function getEmployees(
 
 export async function createEmployee(payload: CreateEmployeePayload) {
   return apiClient.post("/employees", payload);
+}
+
+export async function getEmployeeOptions(): Promise<EmployeeOption[]> {
+  const response = await apiClient.get<unknown>("/employees/options");
+  return normalizeEmployeeOptions(response);
 }
 
 export async function getEmployeeById(id: string): Promise<Employee> {

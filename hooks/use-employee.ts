@@ -1,10 +1,12 @@
 import {
   createEmployee,
   deleteEmployee,
+  getEmployeeOptions,
   getEmployeeById,
   getEmployees,
   updateEmployee,
   type CreateEmployeePayload,
+  type EmployeeOption,
   type UpdateEmployeePayload,
 } from "@/lib/api/employee";
 import { getErrorMessage, getReadableErrorCode } from "@/lib/api/errors";
@@ -32,6 +34,15 @@ export const useEmployeeById = (id: string, enabled = true) => {
     queryFn: () => getEmployeeById(id),
     staleTime: 60_000,
     enabled: enabled && Boolean(id),
+  });
+};
+
+export const useEmployeeOptions = (enabled = true) => {
+  return useQuery<EmployeeOption[]>({
+    queryKey: ["employees", "options"],
+    queryFn: () => getEmployeeOptions(),
+    staleTime: 60_000,
+    enabled,
   });
 };
 

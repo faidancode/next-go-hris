@@ -1,4 +1,4 @@
-import { User } from "@/app/(protected)/user/types";
+import { User } from "@/app/(protected)/users/types";
 import { apiClient } from "@/lib/api/client";
 
 export type UserListResponse = {

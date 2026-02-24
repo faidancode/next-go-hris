@@ -7,6 +7,7 @@ import { useAuthStore } from "@/app/stores/auth";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/shared/app-sidebar";
 import { Toaster } from "sonner";
+import { LogoLoading } from "@/components/shared/logo-loading";
 
 export default function ProtectedLayout({
   children,
@@ -30,8 +31,7 @@ export default function ProtectedLayout({
   if (!hasHydrated || isValidating) {
     return (
       <div className="flex h-screen items-center justify-center">
-        {/* Ganti dengan komponen LogoLoading Anda */}
-        <p className="text-sm animate-pulse">Memuat Sesi...</p>
+        <LogoLoading />
       </div>
     );
   }

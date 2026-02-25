@@ -24,6 +24,7 @@ export type RolePayload = {
 export type UserWithRoles = {
   id: string;
   employee_id: string;
+  employee_number: string;
   email: string;
   full_name: string;
   is_active: boolean;

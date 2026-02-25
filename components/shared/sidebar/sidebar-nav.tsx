@@ -20,17 +20,34 @@ import {
   Users,
   ShieldUser,
   Settings,
+  UserRoundCog,
+  type LucideIcon,
 } from "lucide-react";
 import { can, clearRbacCache } from "@/lib/rbac/can";
 
-const SIDEBAR_ITEMS = [
-  { title: "Dashboard", url: "/dashboard", icon: ChartArea },
+type SidebarSection = "general" | "settings";
+
+const SIDEBAR_ITEMS: Array<{
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  resource?: string;
+  action?: string;
+  section: SidebarSection;
+}> = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: ChartArea,
+    section: "general",
+  },
   {
     title: "Departments",
     url: "/departments",
     icon: Building2,
     resource: "department",
     action: "read",
+    section: "general",
   },
   {
     title: "Positions",
@@ -38,6 +55,7 @@ const SIDEBAR_ITEMS = [
     icon: BriefcaseBusiness,
     resource: "position",
     action: "read",
+    section: "general",
   },
   {
     title: "Employees",
@@ -45,6 +63,7 @@ const SIDEBAR_ITEMS = [
     icon: Users,
     resource: "employee",
     action: "read",
+    section: "general",
   },
   {
     title: "Leaves",
@@ -52,6 +71,7 @@ const SIDEBAR_ITEMS = [
     icon: Plane,
     resource: "leave",
     action: "read",
+    section: "general",
   },
   {
     title: "Attendance",
@@ -59,6 +79,7 @@ const SIDEBAR_ITEMS = [
     icon: CalendarCheck2,
     resource: "attendance",
     action: "read",
+    section: "general",
   },
   {
     title: "Employee Salaries",
@@ -66,6 +87,7 @@ const SIDEBAR_ITEMS = [
     icon: HandCoins,
     resource: "salary",
     action: "read",
+    section: "general",
   },
   {
     title: "Payrolls",
@@ -73,6 +95,7 @@ const SIDEBAR_ITEMS = [
     icon: ReceiptText,
     resource: "payroll",
     action: "read",
+    section: "general",
   },
   {
     title: "Users",
@@ -80,17 +103,27 @@ const SIDEBAR_ITEMS = [
     icon: ShieldUser,
     resource: "user",
     action: "read",
+    section: "general",
   },
   {
-    title: "Role Permission",
+    title: "Role Management",
     url: "/settings/user-role-permission",
     icon: Settings,
     resource: "role",
     action: "read",
+    section: "settings",
+  },
+  {
+    title: "Assign Role to User",
+    url: "/settings/user-role-assignment",
+    icon: UserRoundCog,
+    resource: "user",
+    action: "read",
+    section: "settings",
   },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ section }: { section: SidebarSection }) {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
@@ -136,7 +169,9 @@ export function SidebarNav() {
 
   return (
     <SidebarMenu>
-      {visibleItems.map((item) => {
+      {visibleItems
+        .filter((item) => item.section === section)
+        .map((item) => {
         const active = isActive(item.url);
 
         return (
@@ -165,7 +200,7 @@ export function SidebarNav() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         );
-      })}
+        })}
     </SidebarMenu>
   );
 }

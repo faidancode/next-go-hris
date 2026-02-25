@@ -37,7 +37,16 @@ export function AppSidebar() {
             General
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarNav />
+            <SidebarNav section="general" />
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sm font-semibold">
+            Settings
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarNav section="settings" />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

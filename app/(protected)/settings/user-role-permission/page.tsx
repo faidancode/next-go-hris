@@ -32,6 +32,7 @@ export default function UserRolePermissionPage() {
   const [canRoleManage, setCanRoleManage] = useState(false);
 
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [roleDescription, setRoleDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
@@ -70,17 +71,19 @@ export default function UserRolePermissionPage() {
   }, []);
 
   useEffect(() => {
+    if (isCreatingRole) return;
     if (selectedRoleId) return;
     if (!rolesQuery.data?.length) return;
     setSelectedRoleId(rolesQuery.data[0].id);
-  }, [rolesQuery.data, selectedRoleId]);
+  }, [isCreatingRole, rolesQuery.data, selectedRoleId]);
 
   useEffect(() => {
+    if (isCreatingRole) return;
     if (!roleDetailQuery.data) return;
     setRoleName(roleDetailQuery.data.name ?? "");
     setRoleDescription(roleDetailQuery.data.description ?? "");
     setSelectedPermissions(roleDetailQuery.data.permissions ?? []);
-  }, [roleDetailQuery.data]);
+  }, [isCreatingRole, roleDetailQuery.data]);
 
   const groupedPermissions = useMemo(() => {
     const items = permissionsQuery.data ?? [];
@@ -97,6 +100,16 @@ export default function UserRolePermissionPage() {
     setRoleName("");
     setRoleDescription("");
     setSelectedPermissions([]);
+  };
+
+  const startCreateRole = () => {
+    setIsCreatingRole(true);
+    resetForm();
+  };
+
+  const selectExistingRole = (roleId: string) => {
+    setIsCreatingRole(false);
+    setSelectedRoleId(roleId);
   };
 
   const togglePermission = (permissionKey: string) => {
@@ -135,6 +148,7 @@ export default function UserRolePermissionPage() {
           description: roleDescription.trim() || undefined,
           permissions: selectedPermissions,
         });
+        setIsCreatingRole(true);
         resetForm();
       }
     } catch {
@@ -151,6 +165,7 @@ export default function UserRolePermissionPage() {
 
     try {
       await deleteRoleMutation.mutateAsync(selectedRoleId);
+      setIsCreatingRole(false);
       resetForm();
     } catch {
       // handled in hook
@@ -190,7 +205,7 @@ export default function UserRolePermissionPage() {
                 type="button"
                 variant="outline"
                 className="w-full justify-start"
-                onClick={resetForm}
+                onClick={startCreateRole}
                 disabled={!canRoleManage}
               >
                 <PlusCircle className="size-4 mr-2" />
@@ -202,7 +217,7 @@ export default function UserRolePermissionPage() {
                   <button
                     key={role.id}
                     type="button"
-                    onClick={() => setSelectedRoleId(role.id)}
+                    onClick={() => selectExistingRole(role.id)}
                     className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
                       selectedRoleId === role.id
                         ? "border-primary bg-primary/10"
